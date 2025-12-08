@@ -1,4 +1,4 @@
-# LightSession for ChatGPT
+# ⚡ LightSession for ChatGPT
 
 Keep ChatGPT fast by keeping only the last N messages in the DOM.
 Local-only, privacy-first browser extension that fixes UI lag in long conversations.
@@ -9,7 +9,7 @@ Local-only, privacy-first browser extension that fixes UI lag in long conversati
 
 ---
 
-## Why LightSession?
+## 🤔 Why LightSession?
 
 Long ChatGPT threads are brutal for the browser: the UI keeps every message in the DOM and the tab slowly turns into molasses — scroll becomes choppy, typing lags, devtools crawl.
 
@@ -23,7 +23,7 @@ Built after too many coding sessions where a single ChatGPT tab would start eati
 
 ---
 
-## Who is this for?
+## 🎯 Who is this for?
 
 - People who keep **very long ChatGPT threads** (100+ messages)
 - Developers who use ChatGPT for **debugging, code reviews, or long refactors**
@@ -31,7 +31,7 @@ Built after too many coding sessions where a single ChatGPT tab would start eati
 
 ---
 
-## Features
+## ✨ Features
 
 **Performance**
 
@@ -54,7 +54,7 @@ Built after too many coding sessions where a single ChatGPT tab would start eati
 
 ---
 
-## Install
+## 📦 Install
 
 ### Firefox Add-ons (recommended)
 
@@ -88,7 +88,7 @@ Then:
 
 ---
 
-## Usage
+## 🚀 Usage
 
 ### Basic usage
 
@@ -117,7 +117,7 @@ When you want to see the full history again:
 
 ---
 
-## FAQ
+## ❓ FAQ
 
 ### Does this reduce the model's context?
 
@@ -144,7 +144,7 @@ LightSession uses a multi-tier selector strategy and conservative fallbacks, but
 
 ---
 
-## How it works (under the hood)
+## 🔧 How it works
 
 LightSession uses a non-destructive trimming pipeline:
 
@@ -159,7 +159,7 @@ Trimming only affects what the browser renders. The conversation itself remains 
 
 ---
 
-## Development
+## 🛠️ Development
 
 ### Requirements
 
@@ -221,7 +221,7 @@ extension/
 
 ---
 
-## Compatibility
+## 🌐 Compatibility
 
 - **Browser:** Firefox >= 115 (Manifest V3)
 - **OS:** Windows, macOS, Linux
@@ -232,20 +232,20 @@ extension/
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Pull requests are welcome.
 For larger changes or new features, please open an issue first to discuss the approach.
 
 ---
 
-## License
+## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## Support
+## ❤️ Support
 
 - **Issues:** [GitHub Issues](https://github.com/11me/light-session/issues)
 
