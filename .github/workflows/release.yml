@@ -85,3 +85,10 @@ jobs:
 
             ---
 
+      - name: Publish to Firefox Add-ons
+        uses: browser-actions/release-firefox-addon@latest
+        with:
+          addon-id: ${{ secrets.FIREFOX_ADDON_ID }}
+          addon-path: light-session-${{ steps.version.outputs.VERSION }}.zip
+          auth-api-issuer: ${{ secrets.FIREFOX_API_ISSUER }}
+          auth-api-secret: ${{ secrets.FIREFOX_API_SECRET }}
