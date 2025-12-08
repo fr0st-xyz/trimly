@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# AI and speckit related
+.claude/
+.specify/
+specs/
+CLAUDE.md
+**/CLAUDE.md
+
+# Build outputs - compiled TypeScript files
+extension/dist/
+extension/popup/*.js
+extension/popup/*.js.map
+*.d.ts
+*.d.ts.map
+
+# Extension artifacts
+web-ext-artifacts/
+*.xpi
+*.zip
+
+# But keep these important JS files
+!build.js
+!.eslintrc.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Development mode marker
+extension/.dev
+
+# Temporary
+*.tmp
+*.temp
