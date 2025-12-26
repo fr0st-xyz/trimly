@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -27,6 +27,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Type check
+        run: npm run build:types
 
       - name: Build
         run: npm run build
@@ -51,16 +57,19 @@ jobs:
             package.json \
             package-lock.json \
             tsconfig.json \
-            build.js \
+            vitest.config.ts \
+            eslint.config.js \
+            build.cjs \
             README.md \
             LICENSE \
             .gitignore \
-            .eslintrc.json \
             .prettierrc \
+            .node-version \
             docs/ \
             extension/src/ \
             extension/icons/ \
-            extension/manifest.json
+            extension/manifest.json \
+            tests/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
