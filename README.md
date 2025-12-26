@@ -163,8 +163,8 @@ Trimming only affects what the browser renders. The conversation itself remains 
 
 ### Requirements
 
-- Node.js >= 18
-- npm >= 9
+- Node.js >= 24.10.0 (see `.node-version`)
+- npm >= 10
 - Firefox >= 115
 
 ### Scripts
@@ -178,6 +178,9 @@ npm run build
 
 # Watch + rebuild on changes
 npm run watch
+
+# Run tests
+npm run test
 
 # Lint
 npm run lint
@@ -214,7 +217,7 @@ extension/
 
 ### Architecture
 
-- **State machine** for the trimmer: `IDLE → OBSERVING → PENDING_TRIM → TRIMMING`
+- **State machine** for the trimmer: `IDLE ↔ OBSERVING` (simplified two-state design)
 - **Debounced MutationObserver** (~75ms) to batch DOM changes
 - **Idle callback** (`requestIdleCallback`) for non-blocking node removal
 - **Fail-safe thresholds** (e.g. minimum message count) to avoid over-trimming

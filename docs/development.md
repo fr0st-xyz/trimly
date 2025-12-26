@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Node.js >= 18
-- npm >= 9
+- Node.js >= 24.10.0 (use [fnm](https://github.com/Schniz/fnm) or check `.node-version`)
+- npm >= 10
 - Firefox >= 115 (or Firefox Developer Edition)
 
 ## Quick Start
@@ -53,8 +53,11 @@ light-session/
 │   ├── manifest.json          # Firefox extension manifest (MV3)
 │   └── .dev                   # Dev mode marker (not committed)
 ├── docs/                      # Documentation
-├── build.js                   # Build script (esbuild)
-├── package.json
+├── tests/                     # Unit tests (vitest + happy-dom)
+├── build.cjs                  # Build script (esbuild, CommonJS)
+├── eslint.config.js           # ESLint flat config
+├── vitest.config.ts           # Test configuration
+├── package.json               # ES module ("type": "module")
 └── tsconfig.json
 ```
 
@@ -179,11 +182,18 @@ Enable debug mode in the popup to see detailed logs:
 | Script | Description |
 |--------|-------------|
 | `npm run build` | Build once |
+| `npm run build:types` | Type check with TypeScript (no emit) |
+| `npm run build:prod` | Production build (removes .dev marker) |
 | `npm run watch` | Build and watch for changes |
 | `npm run dev` | Run in Firefox Developer Edition with auto-reload |
 | `npm run dev:stable` | Run in Firefox stable |
+| `npm run test` | Run unit tests (vitest) |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
 | `npm run lint` | Run ESLint |
+| `npm run lint:fix` | Fix ESLint issues automatically |
 | `npm run format` | Format code with Prettier |
+| `npm run format:check` | Check code formatting |
 | `npm run package` | Create .xpi for distribution |
 | `npm run clean` | Remove build artifacts |
 
