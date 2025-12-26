@@ -5,8 +5,6 @@ node_modules/
 .claude/
 .specify/
 specs/
-CLAUDE.md
-**/CLAUDE.md
 
 # Build outputs - compiled TypeScript files
 extension/dist/
