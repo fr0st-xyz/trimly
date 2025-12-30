@@ -32,6 +32,7 @@ let enableToggle: HTMLInputElement;
 let keepSlider: HTMLInputElement;
 let keepValue: HTMLElement;
 let showStatusBarCheckbox: HTMLInputElement | null;
+let ultraLeanCheckbox: HTMLInputElement | null;
 let debugCheckbox: HTMLInputElement | null;
 let debugGroup: HTMLElement | null;
 let refreshButton: HTMLButtonElement;
@@ -120,6 +121,7 @@ async function initialize(): Promise<void> {
 
   // Get optional UI elements (may not exist in all configurations)
   showStatusBarCheckbox = getOptionalElement<HTMLInputElement>('showStatusBarCheckbox');
+  ultraLeanCheckbox = getOptionalElement<HTMLInputElement>('ultraLeanCheckbox');
   debugCheckbox = getOptionalElement<HTMLInputElement>('debugCheckbox');
   debugGroup = getOptionalElement<HTMLElement>('debugGroup');
 
@@ -145,6 +147,9 @@ async function initialize(): Promise<void> {
   keepSlider.addEventListener('change', handleKeepSliderChange);
   if (showStatusBarCheckbox) {
     showStatusBarCheckbox.addEventListener('change', handleShowStatusBarToggle);
+  }
+  if (ultraLeanCheckbox) {
+    ultraLeanCheckbox.addEventListener('change', handleUltraLeanToggle);
   }
   if (debugCheckbox) {
     debugCheckbox.addEventListener('change', handleDebugToggle);
@@ -172,6 +177,9 @@ async function loadSettings(): Promise<void> {
 
     if (showStatusBarCheckbox) {
       showStatusBarCheckbox.checked = settings.showStatusBar;
+    }
+    if (ultraLeanCheckbox) {
+      ultraLeanCheckbox.checked = settings.ultraLean;
     }
     if (debugCheckbox) {
       debugCheckbox.checked = settings.debug;
@@ -240,6 +248,16 @@ function handleKeepSliderChange(): void {
 function handleShowStatusBarToggle(): void {
   if (showStatusBarCheckbox) {
     void updateSettings({ showStatusBar: showStatusBarCheckbox.checked });
+  }
+}
+
+/**
+ * Handle Ultra Lean mode toggle
+ */
+function handleUltraLeanToggle(): void {
+  if (ultraLeanCheckbox) {
+    void updateSettings({ ultraLean: ultraLeanCheckbox.checked });
+    showStatus(ultraLeanCheckbox.checked ? 'Ultra Lean enabled' : 'Ultra Lean disabled');
   }
 }
 

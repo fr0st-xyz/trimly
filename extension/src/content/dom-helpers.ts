@@ -158,6 +158,199 @@ export function findConversationRoot(): HTMLElement | null {
   return document.body;
 }
 
+// ============================================================================
+// Narrower Messages Root (for Ultra Lean mode)
+// ============================================================================
+
+// Cache for messages root to avoid repeated DOM traversal
+let messagesRootCache: HTMLElement | null = null;
+let messagesRootCacheTime = 0;
+const MESSAGES_ROOT_CACHE_TTL_MS = 5000;
+
+// Selectors that indicate composer presence (we want to exclude these)
+const COMPOSER_SELECTORS = [
+  'form[class*="composer" i]',
+  '[data-testid*="composer" i]',
+  'textarea',
+  '[contenteditable="true"]',
+  '[role="textbox"]',
+];
+
+// Selectors to find message elements
+const MESSAGE_SELECTORS = [
+  '[data-message-id]',
+  '[data-turn]',
+  '[data-testid="conversation-turn"]',
+  '[data-testid^="conversation-turn-"]',
+].join(',');
+
+/**
+ * Find the narrowest container that holds only messages, excluding the composer.
+ * This provides a more focused observation target to reduce MutationObserver noise
+ * when typing in the composer.
+ *
+ * Strategy:
+ * 1. Find first message element as anchor
+ * 2. Walk up the DOM tree
+ * 3. Stop at the last container that doesn't include a composer
+ * 4. Require at least 2 messages to validate the container
+ *
+ * Falls back to findConversationRoot() if unable to isolate messages.
+ */
+export function findMessagesRoot(): HTMLElement | null {
+  // Return cached result if still valid
+  const now = performance.now();
+  if (messagesRootCache && now - messagesRootCacheTime < MESSAGES_ROOT_CACHE_TTL_MS) {
+    // Verify cache is still in DOM
+    if (messagesRootCache.isConnected) {
+      return messagesRootCache;
+    }
+    // Cache is stale, clear it
+    messagesRootCache = null;
+  }
+
+  // Find first message to anchor our search
+  const firstMessage = document.querySelector<HTMLElement>(MESSAGE_SELECTORS);
+
+  if (!firstMessage) {
+    logDebug('findMessagesRoot: No message found, falling back to findConversationRoot');
+    return findConversationRoot();
+  }
+
+  // Walk up from first message, find narrowest container without composer
+  let candidate: HTMLElement | null = firstMessage.parentElement;
+  let messagesRoot: HTMLElement | null = null;
+
+  // Limit traversal depth to prevent infinite loops
+  const MAX_DEPTH = 15;
+  let depth = 0;
+
+  while (candidate && candidate !== document.body && depth < MAX_DEPTH) {
+    depth++;
+
+    // Check if this candidate contains a composer
+    const hasComposer = COMPOSER_SELECTORS.some(sel => candidate?.querySelector(sel));
+
+    if (hasComposer) {
+      // This container includes composer, use previous candidate (if any)
+      logDebug(`findMessagesRoot: Found composer at depth ${depth}, using previous candidate`);
+      break;
+    }
+
+    // Check if candidate has multiple messages (validates it's a good container)
+    const messageCount = candidate.querySelectorAll(MESSAGE_SELECTORS).length;
+
+    if (messageCount >= 2) {
+      // Remove attribute from previous candidate to avoid multiple marked elements
+      if (messagesRoot && messagesRoot !== candidate) {
+        messagesRoot.removeAttribute('data-ls-messages-root');
+      }
+      messagesRoot = candidate;
+      // Mark the element for CSS targeting
+      messagesRoot.setAttribute('data-ls-messages-root', '1');
+    }
+
+    candidate = candidate.parentElement;
+  }
+
+  if (messagesRoot) {
+    logDebug(`findMessagesRoot: Found container with ${messagesRoot.querySelectorAll(MESSAGE_SELECTORS).length} messages at depth ${depth}`);
+    messagesRootCache = messagesRoot;
+    messagesRootCacheTime = now;
+    return messagesRoot;
+  }
+
+  // Fallback to full conversation root
+  logDebug('findMessagesRoot: Could not isolate messages, using findConversationRoot');
+  return findConversationRoot();
+}
+
+/**
+ * Invalidate the messages root cache.
+ * Call this on navigation or when settings change.
+ * Also invalidates the shallow observer capability cache.
+ */
+export function invalidateMessagesRootCache(): void {
+  if (messagesRootCache) {
+    messagesRootCache.removeAttribute('data-ls-messages-root');
+  }
+  messagesRootCache = null;
+  messagesRootCacheTime = 0;
+
+  // Also invalidate shallow capable cache since it depends on messages root
+  shallowCapableCache = null;
+  shallowCapableCacheTime = 0;
+
+  logDebug('Messages root cache invalidated');
+}
+
+/**
+ * Check if a root element has messages as direct children.
+ * Used to determine if shallow observation (subtree: false) is possible.
+ *
+ * @param root The container element to check
+ * @returns true if at least 2 message elements are direct children of root
+ */
+export function hasDirectMessageChildren(root: HTMLElement): boolean {
+  let directMessageCount = 0;
+
+  for (const child of Array.from(root.children)) {
+    if (child instanceof HTMLElement && child.matches(MESSAGE_SELECTORS)) {
+      directMessageCount++;
+      if (directMessageCount >= 2) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+// Cache for shallow observer capability check
+let shallowCapableCache: boolean | null = null;
+let shallowCapableCacheTime = 0;
+const SHALLOW_CAPABLE_CACHE_TTL_MS = 5000;
+
+/**
+ * Check if shallow observation is possible for the current messages root.
+ * Returns true if messagesRoot has messages as direct children,
+ * meaning we can use subtree: false to reduce observer noise.
+ *
+ * Results are cached for 5 seconds to avoid repeated DOM traversal.
+ * Cache is invalidated when messages root cache is invalidated.
+ */
+export function canUseShallowObserver(): boolean {
+  const now = performance.now();
+
+  // Return cached result if still valid
+  if (shallowCapableCache !== null && now - shallowCapableCacheTime < SHALLOW_CAPABLE_CACHE_TTL_MS) {
+    return shallowCapableCache;
+  }
+
+  const root = findMessagesRoot();
+  if (!root) {
+    shallowCapableCache = false;
+    shallowCapableCacheTime = now;
+    return false;
+  }
+
+  const canShallow = hasDirectMessageChildren(root);
+  shallowCapableCache = canShallow;
+  shallowCapableCacheTime = now;
+
+  logDebug(`canUseShallowObserver: ${canShallow} (messages are ${canShallow ? 'direct' : 'nested'} children)`);
+  return canShallow;
+}
+
+/**
+ * Invalidate the shallow observer capability cache.
+ * Called together with messages root cache invalidation.
+ */
+export function invalidateShallowCapableCache(): void {
+  shallowCapableCache = null;
+  shallowCapableCacheTime = 0;
+}
+
 /**
  * Find the scrollable ancestor of an element
  */
@@ -181,6 +374,53 @@ export function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
   return document.documentElement;
 }
 
+// Cache scroller to avoid repeated findScrollableAncestor calls
+let cachedScroller: HTMLElement | null = null;
+let scrollerCacheTime = 0;
+const SCROLLER_CACHE_TTL_MS = 3000;
+
+/**
+ * Check if user is near the bottom of the scrollable area.
+ * Used to enable fast-path trimming without layout reads.
+ *
+ * When near bottom, user is likely actively chatting, so:
+ * - Use count-based trim (no layout reads)
+ * - Skip visibility checks
+ * - Prioritize responsiveness over precision
+ *
+ * @param root Optional root element to find scroller from
+ * @returns true if within ~2 viewports of bottom
+ */
+export function isNearBottom(root?: HTMLElement | null): boolean {
+  const now = performance.now();
+
+  // Use cached scroller if valid
+  let scroller = cachedScroller;
+  if (!scroller || now - scrollerCacheTime > SCROLLER_CACHE_TTL_MS || !scroller.isConnected) {
+    const anchor = root ?? document.body;
+    scroller = findScrollableAncestor(anchor);
+    cachedScroller = scroller;
+    scrollerCacheTime = now;
+  }
+
+  if (!scroller) return true; // Assume near bottom if no scroller
+
+  // Calculate remaining scroll distance
+  const remaining = scroller.scrollHeight - (scroller.scrollTop + scroller.clientHeight);
+
+  // "Near bottom" = within 2 viewport heights
+  // This gives buffer for smooth experience while user types
+  return remaining < scroller.clientHeight * 2;
+}
+
+/**
+ * Invalidate scroller cache (call on navigation).
+ */
+export function invalidateScrollerCache(): void {
+  cachedScroller = null;
+  scrollerCacheTime = 0;
+}
+
 /**
  * Build NodeInfo array for active thread
  * Filters visible nodes, assigns roles and IDs
@@ -189,9 +429,12 @@ export function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
  * 1. NodeList from querySelectorAll is already in document order
  * 2. content-visibility: auto breaks getBoundingClientRect() for offscreen elements
  * 3. DOM order is more reliable and doesn't trigger layout
+ *
+ * @param root Optional root element to scope queries (defaults to document)
+ *             When provided, queries are faster as they search smaller DOM subtree
  */
-export function buildActiveThread(): NodeInfo[] {
-  const { nodes, tier } = collectCandidates();
+export function buildActiveThread(root?: ParentNode): NodeInfo[] {
+  const { nodes, tier } = collectCandidates(root);
 
   if (nodes.length < DOM.MIN_CANDIDATES) {
     logDebug(`buildActiveThread: Not enough candidates (${nodes.length})`);
@@ -227,9 +470,12 @@ export function buildActiveThread(): NodeInfo[] {
  * - Less accurate: may include hidden elements or wrong order
  * - Much faster: no forced layout/reflow
  * - For BOOT mode, speed is more important than perfect accuracy
+ *
+ * @param root Optional root element to scope queries (defaults to document)
+ *             When provided, queries are faster as they search smaller DOM subtree
  */
-export function buildActiveThreadFast(): NodeInfo[] {
-  const { nodes, tier } = collectCandidatesFast();
+export function buildActiveThreadFast(root?: ParentNode): NodeInfo[] {
+  const { nodes, tier } = collectCandidatesFast(root);
 
   if (nodes.length < DOM.MIN_CANDIDATES) {
     logDebug(`buildActiveThreadFast: Not enough candidates (${nodes.length})`);

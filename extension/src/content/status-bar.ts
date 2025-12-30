@@ -18,6 +18,12 @@ let currentStats: StatusBarStats | null = null;
 let isVisible = true;
 let accumulatedTrimmed = 0;
 
+// Throttle status bar updates to reduce DOM writes during active chat
+const STATUS_BAR_THROTTLE_MS = 500;
+let lastUpdateTime = 0;
+let pendingStats: StatusBarStats | null = null;
+let pendingUpdateTimer: number | null = null;
+
 /**
  * Get or create the status bar element
  */
@@ -129,7 +135,35 @@ function applyStateStyles(bar: HTMLElement, state: StatusBarState): void {
 }
 
 /**
- * Update the status bar with new stats
+ * Check if two stats objects are equal (for change detection)
+ */
+function statsEqual(a: StatusBarStats | null, b: StatusBarStats | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.totalMessages === b.totalMessages &&
+    a.visibleMessages === b.visibleMessages &&
+    a.trimmedMessages === b.trimmedMessages &&
+    a.keepLastN === b.keepLastN
+  );
+}
+
+/**
+ * Actually render the status bar (internal, bypasses throttle)
+ */
+function renderStatusBar(displayStats: StatusBarStats): void {
+  const bar = getOrCreateStatusBar();
+  if (!bar) {
+    return;
+  }
+
+  const { text, state } = getStatusText(displayStats);
+  bar.textContent = text;
+  applyStateStyles(bar, state);
+  lastUpdateTime = performance.now();
+}
+
+/**
+ * Update the status bar with new stats (throttled, with change detection)
  */
 export function updateStatusBar(stats: StatusBarStats): void {
   // Reset accumulated count when entering a new/empty chat
@@ -148,20 +182,43 @@ export function updateStatusBar(stats: StatusBarStats): void {
     trimmedMessages: accumulatedTrimmed,
   };
 
+  // Change detection: skip if stats haven't changed
+  if (statsEqual(displayStats, currentStats)) {
+    return;
+  }
+
   currentStats = displayStats;
 
   if (!isVisible) {
     return;
   }
 
-  const bar = getOrCreateStatusBar();
-  if (!bar) {
-    return;
-  }
+  // Throttle: check if enough time has passed since last update
+  const now = performance.now();
+  const elapsed = now - lastUpdateTime;
 
-  const { text, state } = getStatusText(displayStats);
-  bar.textContent = text;
-  applyStateStyles(bar, state);
+  if (elapsed >= STATUS_BAR_THROTTLE_MS) {
+    // Enough time passed, render immediately
+    if (pendingUpdateTimer !== null) {
+      clearTimeout(pendingUpdateTimer);
+      pendingUpdateTimer = null;
+    }
+    pendingStats = null;
+    renderStatusBar(displayStats);
+  } else {
+    // Too soon, schedule pending update
+    pendingStats = displayStats;
+    if (pendingUpdateTimer === null) {
+      const delay = STATUS_BAR_THROTTLE_MS - elapsed;
+      pendingUpdateTimer = window.setTimeout(() => {
+        pendingUpdateTimer = null;
+        if (pendingStats && isVisible) {
+          renderStatusBar(pendingStats);
+          pendingStats = null;
+        }
+      }, delay);
+    }
+  }
 }
 
 /**
@@ -221,6 +278,13 @@ export function hideStatusBar(): void {
  * Remove the status bar from DOM
  */
 export function removeStatusBar(): void {
+  // Clear any pending update timer
+  if (pendingUpdateTimer !== null) {
+    clearTimeout(pendingUpdateTimer);
+    pendingUpdateTimer = null;
+  }
+  pendingStats = null;
+
   const bar = document.getElementById(STATUS_BAR_ID);
   if (bar) {
     bar.remove();
@@ -228,6 +292,7 @@ export function removeStatusBar(): void {
   currentStats = null;
   isVisible = false;
   accumulatedTrimmed = 0;
+  lastUpdateTime = 0;
 }
 
 /**

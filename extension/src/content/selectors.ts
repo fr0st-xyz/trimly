@@ -19,6 +19,7 @@ interface SelectorCache {
   nodes: HTMLElement[];
   tier: SelectorTierName | null;
   timestamp: number;
+  epoch: number; // Cache generation - entries with old epoch are invalid
 }
 
 /**
@@ -29,28 +30,88 @@ interface SelectorCache {
 const CACHE_TTL_MS = 100;
 
 /**
- * Current cache entry (null if not cached or expired)
+ * Cache epoch (generation counter).
+ * Incrementing this instantly invalidates all cached entries without
+ * needing to clear the WeakMap (which is impossible).
  */
-let selectorCache: SelectorCache | null = null;
+let cacheEpoch = 0;
 
 /**
- * Invalidate the selector cache.
- * Called when DOM changes significantly (e.g., navigation).
+ * Per-root cache using WeakMap.
+ * WeakMap allows GC of cache entries when root elements are removed from DOM.
+ * This prevents memory leaks during SPA navigation.
  */
-export function invalidateSelectorCache(): void {
-  selectorCache = null;
-  logDebug('Selector cache invalidated');
+const rootCacheMap = new WeakMap<ParentNode, SelectorCache>();
+
+/**
+ * Document-level cache (for when no root is specified)
+ * Stored separately since Document is not a valid WeakMap key in all contexts
+ */
+let documentCache: SelectorCache | null = null;
+
+/**
+ * Invalidate the selector cache for a specific root or all caches.
+ * Called when DOM changes significantly (e.g., navigation).
+ *
+ * @param root Optional root to invalidate. If not provided, invalidates document cache.
+ */
+export function invalidateSelectorCache(root?: ParentNode): void {
+  // Document or no root - clear the document-level cache
+  if (!root || root === document) {
+    documentCache = null;
+    logDebug('Document selector cache invalidated');
+    return;
+  }
+  // Specific root - clear from WeakMap
+  rootCacheMap.delete(root);
+  logDebug('Root selector cache invalidated');
 }
 
 /**
- * Check if cache is valid (exists and not expired)
+ * Invalidate all selector caches (document + all roots).
+ * Uses epoch increment to instantly invalidate all WeakMap entries
+ * without needing to clear them (which is impossible).
  */
-function isCacheValid(): boolean {
-  if (!selectorCache) {
-    return false;
-  }
-  const age = performance.now() - selectorCache.timestamp;
+export function invalidateAllSelectorCaches(): void {
+  cacheEpoch++; // Instantly invalidates ALL cached entries
+  documentCache = null;
+  logDebug('All selector caches invalidated (epoch++)');
+}
+
+/**
+ * Check if a cache entry is valid (correct epoch and not expired)
+ */
+function isCacheEntryValid(entry: SelectorCache | null | undefined): entry is SelectorCache {
+  if (!entry) return false;
+  if (entry.epoch !== cacheEpoch) return false; // Stale epoch
+  const age = performance.now() - entry.timestamp;
   return age < CACHE_TTL_MS;
+}
+
+/**
+ * Get cached result for a root, if valid
+ */
+function getCachedResult(root: ParentNode | undefined): SelectorCache | null {
+  if (!root || root === document) {
+    return isCacheEntryValid(documentCache) ? documentCache : null;
+  }
+  const cached = rootCacheMap.get(root);
+  return isCacheEntryValid(cached) ? cached : null;
+}
+
+/**
+ * Store result in cache (automatically stamps with current epoch)
+ */
+function setCachedResult(
+  root: ParentNode | undefined,
+  result: Omit<SelectorCache, 'epoch'>
+): void {
+  const entry: SelectorCache = { ...result, epoch: cacheEpoch };
+  if (!root || root === document) {
+    documentCache = entry;
+  } else {
+    rootCacheMap.set(root, entry);
+  }
 }
 
 /**
@@ -95,25 +156,30 @@ function filterToOutermostElements(elements: HTMLElement[]): HTMLElement[] {
  * Collect candidate message nodes using multi-tier selector strategy
  * Tries Tier A first, falls back to B, then C
  *
- * Uses caching with 100ms TTL to reduce DOM queries during rapid
+ * Uses per-root caching with 100ms TTL to reduce DOM queries during rapid
  * evaluation cycles (e.g., within debounce window).
  *
+ * @param root Optional root element to scope queries (defaults to document)
+ *             When provided, queries are faster as they search smaller DOM subtree
  * @returns Object containing nodes array and tier used (or null if all tiers failed)
  */
-export function collectCandidates(): { nodes: HTMLElement[]; tier: SelectorTierName | null } {
-  // Return cached result if valid
-  if (isCacheValid() && selectorCache) {
+export function collectCandidates(root?: ParentNode): { nodes: HTMLElement[]; tier: SelectorTierName | null } {
+  // Return cached result if valid (works for both document and scoped roots)
+  const cached = getCachedResult(root);
+  if (cached) {
     logDebug('collectCandidates: Using cached result');
-    return { nodes: selectorCache.nodes, tier: selectorCache.tier };
+    return { nodes: cached.nodes, tier: cached.tier };
   }
 
-  logDebug('collectCandidates: Starting selector tier search...');
+  const queryRoot = root ?? document;
+  const scopeLabel = root ? '[scoped]' : '';
+  logDebug(`collectCandidates${scopeLabel}: Starting selector tier search...`);
 
   for (const tier of SELECTOR_TIERS) {
     // Query all selectors for this tier and de-duplicate
     const nodes = [
       ...new Set(
-        tier.selectors.flatMap((sel) => Array.from(document.querySelectorAll<HTMLElement>(sel)))
+        tier.selectors.flatMap((sel) => Array.from(queryRoot.querySelectorAll<HTMLElement>(sel)))
       ),
     ];
 
@@ -136,8 +202,9 @@ export function collectCandidates(): { nodes: HTMLElement[]; tier: SelectorTierN
       logDebug(
         `Using selector tier ${tier.name} (${tier.description}): ${outermost.length} candidates`
       );
-      // Cache the result
-      selectorCache = { nodes: outermost, tier: tier.name, timestamp: performance.now() };
+      // Cache the result (per-root cache)
+      const result = { nodes: outermost, tier: tier.name, timestamp: performance.now() };
+      setCachedResult(root, result);
       return { nodes: outermost, tier: tier.name };
     }
 
@@ -159,7 +226,7 @@ export function collectCandidates(): { nodes: HTMLElement[]; tier: SelectorTierN
   const fallbackFiltered = [
     ...new Set(
       fallbackSelectors.flatMap((selector) =>
-        Array.from(document.querySelectorAll<HTMLElement>(selector))
+        Array.from(queryRoot.querySelectorAll<HTMLElement>(selector))
       )
     ),
   ].filter(isLikelyMessage);
@@ -173,14 +240,16 @@ export function collectCandidates(): { nodes: HTMLElement[]; tier: SelectorTierN
         fallbackNodes.length +
         ' candidates using data-testid heuristics'
     );
-    // Cache the fallback result
-    selectorCache = { nodes: fallbackNodes, tier: null, timestamp: performance.now() };
+    // Cache the fallback result (per-root cache)
+    const result = { nodes: fallbackNodes, tier: null, timestamp: performance.now() };
+    setCachedResult(root, result);
     return { nodes: fallbackNodes, tier: null };
   }
 
   logWarn('All selector tiers failed to find valid candidates');
-  // Cache empty result to avoid repeated queries when no candidates found
-  selectorCache = { nodes: [], tier: null, timestamp: performance.now() };
+  // Cache empty result to avoid repeated queries when no candidates found (per-root cache)
+  const emptyResult = { nodes: [] as HTMLElement[], tier: null, timestamp: performance.now() };
+  setCachedResult(root, emptyResult);
   return { nodes: [], tier: null };
 }
 
@@ -313,15 +382,20 @@ function isLikelyMessageFast(el: HTMLElement): boolean {
  *
  * This is critical for pre-paint trimming where layout reads would
  * force the browser to compute layout before we can trim.
+ *
+ * @param root Optional root element to scope queries (defaults to document)
+ *             When provided, queries are faster as they search smaller DOM subtree
  */
-export function collectCandidatesFast(): { nodes: HTMLElement[]; tier: SelectorTierName | null } {
-  logDebug('collectCandidatesFast: Starting layout-read-free selector search...');
+export function collectCandidatesFast(root?: ParentNode): { nodes: HTMLElement[]; tier: SelectorTierName | null } {
+  const queryRoot = root ?? document;
+  const scopeLabel = root ? '[scoped]' : '';
+  logDebug(`collectCandidatesFast${scopeLabel}: Starting layout-read-free selector search...`);
 
   for (const tier of SELECTOR_TIERS) {
     // Query all selectors for this tier and de-duplicate
     const nodes = [
       ...new Set(
-        tier.selectors.flatMap((sel) => Array.from(document.querySelectorAll<HTMLElement>(sel)))
+        tier.selectors.flatMap((sel) => Array.from(queryRoot.querySelectorAll<HTMLElement>(sel)))
       ),
     ];
 
@@ -357,7 +431,7 @@ export function collectCandidatesFast(): { nodes: HTMLElement[]; tier: SelectorT
   const fallbackFiltered = [
     ...new Set(
       fallbackSelectors.flatMap((selector) =>
-        Array.from(document.querySelectorAll<HTMLElement>(selector))
+        Array.from(queryRoot.querySelectorAll<HTMLElement>(selector))
       )
     ),
   ].filter(isLikelyMessageFast);

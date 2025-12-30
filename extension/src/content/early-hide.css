@@ -69,3 +69,88 @@ html[data-ls-pretrim="1"] [data-testid^="conversation-turn-"] {
   display: none !important;
 }
 */
+
+/* ============================================================================
+ * ULTRA LEAN MODE - Aggressive performance optimizations
+ *
+ * Activated via: document.documentElement.classList.add('ls-ultra-lean')
+ *
+ * Optimizations:
+ * 1. Kill all animations and transitions
+ * 2. Remove shadows, blurs, and filters
+ * 3. Force instant scroll behavior
+ * 4. Enhanced CSS containment
+ * 5. Isolate composer from messages area
+ * ============================================================================ */
+
+/* Kill animations and transitions - FALLBACK (container only, no descendants)
+   Works even when trimmer is disabled - [data-ls-messages-root] may not exist */
+html.ls-ultra-lean main,
+html.ls-ultra-lean [role="main"] {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Kill animations and transitions - FULL (when messages-root is set by trimmer)
+   Scoped to messages-root to reduce style recalc cost on dynamic UI changes. */
+html.ls-ultra-lean [data-ls-messages-root] *,
+html.ls-ultra-lean [data-ls-messages-root] *::before,
+html.ls-ultra-lean [data-ls-messages-root] *::after {
+  animation: none !important;
+  animation-duration: 0s !important;
+  transition: none !important;
+  transition-duration: 0s !important;
+}
+
+/* Kill shadows, blurs, and filters on message elements */
+html.ls-ultra-lean [data-message-id],
+html.ls-ultra-lean [data-turn],
+html.ls-ultra-lean [data-testid*="turn"],
+html.ls-ultra-lean main,
+html.ls-ultra-lean [role="main"] {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+/* Force instant scroll - FALLBACK (container only) */
+html.ls-ultra-lean main,
+html.ls-ultra-lean [role="main"] {
+  scroll-behavior: auto !important;
+}
+
+/* Force instant scroll - FULL (when messages-root is set by trimmer) */
+html.ls-ultra-lean [data-ls-messages-root],
+html.ls-ultra-lean [data-ls-messages-root] * {
+  scroll-behavior: auto !important;
+}
+
+/* Enhanced containment for messages */
+html.ls-ultra-lean [data-message-id],
+html.ls-ultra-lean [data-turn],
+html.ls-ultra-lean [data-testid="conversation-turn"],
+html.ls-ultra-lean [data-testid^="conversation-turn-"] {
+  /* Note: using layout paint style instead of strict - strict includes 'size'
+     which clips content that exceeds contain-intrinsic-size */
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
+}
+
+/* Isolate composer to prevent observer noise */
+html.ls-ultra-lean form[class*="composer" i],
+html.ls-ultra-lean [data-testid*="composer" i],
+html.ls-ultra-lean textarea,
+html.ls-ultra-lean [contenteditable="true"],
+html.ls-ultra-lean [role="textbox"] {
+  contain: layout paint style;
+  transform: translateZ(0); /* Force GPU layer for smoother typing */
+}
+
+/* Disable overflow anchor to prevent scroll jumps */
+html.ls-ultra-lean main,
+html.ls-ultra-lean [role="main"],
+html.ls-ultra-lean [data-ls-messages-root] {
+  overflow-anchor: none;
+}

@@ -138,6 +138,20 @@ main {
   font-weight: 500;
 }
 
+.experimental-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
 /* Range Slider */
 #keepSlider {
   width: 100%;

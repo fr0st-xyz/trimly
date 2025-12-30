@@ -13,6 +13,8 @@ export interface LsSettings {
   keep: number; // Message retention limit (1-100)
   showStatusBar: boolean; // Show in-page status bar with trimming stats
   debug: boolean; // Enable debug logging
+  ultraLean: boolean; // Enable aggressive performance optimizations
+  hideMedia: boolean; // Hide images, videos, and SVGs
 }
 
 // ============================================================================

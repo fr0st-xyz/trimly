@@ -15,6 +15,8 @@ export const DEFAULT_SETTINGS: Readonly<LsSettings> = {
   keep: 10,
   showStatusBar: true,
   debug: false,
+  ultraLean: false,
+  hideMedia: false,
 } as const;
 
 // ============================================================================
