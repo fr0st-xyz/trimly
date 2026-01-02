@@ -23,7 +23,6 @@ function copyStaticFiles() {
   const filesToCopy = [
     { src: 'extension/src/popup/popup.html', dest: 'extension/popup/popup.html' },
     { src: 'extension/src/popup/popup.css', dest: 'extension/popup/popup.css' },
-    { src: 'extension/src/content/early-hide.css', dest: 'extension/dist/early-hide.css' },
   ];
 
   for (const { src, dest } of filesToCopy) {
@@ -31,7 +30,7 @@ function copyStaticFiles() {
       fs.copyFileSync(src, dest);
     }
   }
-  console.log('✓ Copied static files (popup.html, popup.css, early-hide.css)');
+  console.log('✓ Copied static files (popup.html, popup.css)');
 }
 
 const buildOptions = {
@@ -65,10 +64,17 @@ async function build() {
 
     await esbuild.build({
       ...buildOptions,
-      entryPoints: ['extension/src/content/early-hide.ts'],
-      outfile: 'extension/dist/early-hide.js',
+      entryPoints: ['extension/src/page/page-script.ts'],
+      outfile: 'extension/dist/page-script.js',
     });
-    console.log('✓ Built early-hide script');
+    console.log('✓ Built page-script (fetch proxy)');
+
+    await esbuild.build({
+      ...buildOptions,
+      entryPoints: ['extension/src/content/page-inject.ts'],
+      outfile: 'extension/dist/page-inject.js',
+    });
+    console.log('✓ Built page-inject script');
 
     await esbuild.build({
       ...buildOptions,
@@ -104,8 +110,13 @@ async function watch() {
     }),
     esbuild.context({
       ...buildOptions,
-      entryPoints: ['extension/src/content/early-hide.ts'],
-      outfile: 'extension/dist/early-hide.js',
+      entryPoints: ['extension/src/page/page-script.ts'],
+      outfile: 'extension/dist/page-script.js',
+    }),
+    esbuild.context({
+      ...buildOptions,
+      entryPoints: ['extension/src/content/page-inject.ts'],
+      outfile: 'extension/dist/page-inject.js',
     }),
     esbuild.context({
       ...buildOptions,
@@ -135,7 +146,6 @@ async function watch() {
   const staticFiles = [
     'extension/src/popup/popup.html',
     'extension/src/popup/popup.css',
-    'extension/src/content/early-hide.css',
   ];
   for (const file of staticFiles) {
     fs.watchFile(file, { interval: 500 }, () => {

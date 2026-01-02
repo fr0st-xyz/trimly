@@ -89,6 +89,16 @@ export const TIMING = {
    * - Prevents UI from hanging if background script is unresponsive
    */
   MESSAGE_TIMEOUT_MS: 500,
+
+  /**
+   * Timeout for fetch proxy ready signal (ms).
+   *
+   * Rationale:
+   * - Page script should signal ready within a few hundred ms
+   * - 1000ms provides margin for slow page loads
+   * - If timeout fires, proxy may still work (just missed the signal)
+   */
+  PROXY_READY_TIMEOUT_MS: 1000,
 } as const;
 
 // ============================================================================

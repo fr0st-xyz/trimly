@@ -17,46 +17,47 @@ npm run build:types  # TypeScript type check (no emit)
 
 ## Architecture
 
-**Firefox extension (Manifest V3)** that trims old DOM nodes from ChatGPT conversations to fix UI lag.
+**Firefox extension (Manifest V3)** that uses Fetch Proxy to trim ChatGPT conversations before React renders.
 
 ### Core Components
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Content Script | `extension/src/content/` | Injected into ChatGPT pages, handles trimming |
-| Background | `extension/src/background/` | Settings storage, message routing |
+| Page Script | `extension/src/page/` | Fetch Proxy, intercepts API responses |
+| Content Script | `extension/src/content/` | Settings dispatch, status bar UI |
+| Background | `extension/src/background/` | Settings storage |
 | Popup | `extension/src/popup/` | Extension toolbar UI |
 | Shared | `extension/src/shared/` | Types, constants, storage, logger |
 
-### Content Script Flow
+### Fetch Proxy Flow
 
 ```
-content.ts (entry) → trimmer.ts (state machine) → dom-helpers.ts (find nodes)
-                                                 → observers.ts (MutationObserver)
+page-inject.ts (document_start) → injects page-script.ts
+page-script.ts → patches window.fetch → intercepts /backend-api/ responses
+content.ts → dispatches settings via CustomEvent → receives status updates
 ```
-
-**State machine:** `IDLE ↔ OBSERVING` (two states, `trimScheduled` flag controls trimming)
 
 **Trimming flow:**
-1. MutationObserver detects DOM changes (debounced 75ms)
-2. `evaluateTrim()` checks preconditions (enabled, not streaming, etc.)
-3. `buildActiveThread()` finds message nodes using tiered selectors
-4. `executeTrim()` removes excess nodes via `requestIdleCallback`
+1. Page script intercepts GET `/backend-api/` JSON responses
+2. Parses conversation `mapping` and `current_node`
+3. Builds path from current_node to root via parent links
+4. Counts TURNS (role transitions), not individual nodes
+5. Keeps last N turns, filters to user/assistant only
+6. Returns modified Response with trimmed JSON
 
-### Selector Strategy
+### Turn-Based Counting
 
-ChatGPT DOM selectors in `shared/constants.ts` → `SELECTOR_TIERS`:
-- **Tier A:** Data attributes (`[data-message-id]`)
-- **Tier B:** Test IDs and specific classes
-- **Tier C:** Structural fallbacks with heuristics
-
-If ChatGPT UI changes, update selectors in `SELECTOR_TIERS`.
+ChatGPT creates multiple nodes per assistant response (especially with Extended Thinking).
+LightSession counts **turns** (role changes) instead of nodes:
+- `[user, assistant, assistant, user, assistant]` = 4 turns
+- HIDDEN_ROLES: `system`, `tool`, `thinking` excluded from count
 
 ## Project Structure
 
 ```
 extension/src/
-├── content/         # Content scripts (trimmer, observers, dom-helpers)
+├── page/            # Page script (Fetch Proxy, runs in page context)
+├── content/         # Content scripts (settings, status bar)
 ├── background/      # Background service worker
 ├── popup/           # Popup HTML/CSS/TS
 └── shared/          # Types, constants, storage, logger

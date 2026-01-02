@@ -13,7 +13,7 @@ Local-only, privacy-first browser extension that fixes UI lag in long conversati
 
 Long ChatGPT threads are brutal for the browser: the UI keeps every message in the DOM and the tab slowly turns into molasses — scroll becomes choppy, typing lags, devtools crawl.
 
-**LightSession** fixes that by trimming old DOM nodes *on the client side* while keeping the actual conversation intact on OpenAI's side.
+**LightSession** fixes that by intercepting API responses and trimming conversation data *before* React renders it, keeping the actual conversation intact on OpenAI's side.
 
 - **Fixes UI lag** in long chats
 - **Keeps model context intact** (only the DOM is trimmed)
@@ -35,10 +35,10 @@ Built after too many coding sessions where a single ChatGPT tab would start eati
 
 **Performance**
 
-- **Automatic trimming** – keeps only the last _N_ messages visible (configurable range: 1–100 messages)
-- **DOM batching** – node removals are batched within the ~16 ms budget for 60 fps scrolling
-- **Smart timing** – waits for AI responses to fully finish streaming before trimming
-- **Ultra Lean Mode** _(Experimental)_ – aggressive optimizations: kills animations, applies CSS containment, dehighlights old code blocks
+- **Fetch Proxy** – intercepts API responses and trims JSON before React renders (no flash of untrimmed content)
+- **Turn-based counting** – counts conversation turns (user→assistant), not individual nodes, for accurate message limits
+- **Automatic trimming** – keeps only the last _N_ conversation turns visible (configurable range: 1–100)
+- **Ultra Lean Mode** _(Experimental)_ – aggressive CSS optimizations: kills animations, applies containment
 
 **User experience**
 
@@ -148,14 +148,14 @@ LightSession uses a multi-tier selector strategy and conservative fallbacks, but
 
 ## 🔧 How it works
 
-LightSession uses a non-destructive trimming pipeline:
+LightSession uses a **Fetch Proxy** architecture:
 
-1. **Detection** – finds ChatGPT message nodes with a multi-tier selector system
-   (data attributes → test IDs → structural + heuristic fallback).
-2. **Classification** – labels nodes as user / assistant / system / tool messages.
-3. **Calculation** – determines which messages to keep based on your settings.
-4. **Batching** – removes excess nodes in small chunks using `requestIdleCallback` to stay within the frame budget.
-5. **Markers** – optionally leaves comment markers in the DOM for debugging.
+1. **Injection** – at `document_start`, injects a script into the page context before ChatGPT loads.
+2. **Interception** – patches `window.fetch` to intercept `/backend-api/` JSON responses.
+3. **Trimming** – parses the conversation mapping, counts turns (role transitions), keeps the last N turns.
+4. **Response** – returns a modified Response with trimmed JSON; React renders only kept messages.
+
+**Turn counting**: A "turn" is a contiguous sequence of messages from the same role. This matches how ChatGPT renders messages — multiple assistant nodes may render as a single bubble.
 
 Trimming only affects what the browser renders. The conversation itself remains on OpenAI's side and is fully recoverable by reloading the page.
 
@@ -208,7 +208,8 @@ npm run clean
 ```
 extension/
 ├── src/
-│   ├── content/        # Content scripts (run on ChatGPT pages)
+│   ├── content/        # Content scripts (settings dispatch, status bar)
+│   ├── page/           # Page script (Fetch Proxy, runs in page context)
 │   ├── background/     # Background script (settings management)
 │   ├── popup/          # Popup UI (HTML/CSS/JS)
 │   └── shared/         # Shared types, constants, utilities
@@ -219,10 +220,10 @@ extension/
 
 ### Architecture
 
-- **State machine** for the trimmer: `IDLE ↔ OBSERVING` (simplified two-state design)
-- **Debounced MutationObserver** (~75ms) to batch DOM changes
-- **Idle callback** (`requestIdleCallback`) for non-blocking node removal
-- **Fail-safe thresholds** (e.g. minimum message count) to avoid over-trimming
+- **Fetch Proxy** – patches `window.fetch` in page context to intercept API responses
+- **Turn-based trimming** – counts role transitions, not individual nodes
+- **Content ↔ Page communication** – CustomEvents for settings dispatch and status updates
+- **HIDDEN_ROLES** – system, tool, thinking nodes excluded from turn count
 
 ---
 

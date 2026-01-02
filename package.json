@@ -1,6 +1,6 @@
 {
   "name": "light-session",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "module",
   "description": "LightSession for ChatGPT - Firefox extension to optimize long conversation performance",
   "engines": {
