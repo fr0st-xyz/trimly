@@ -18,74 +18,19 @@ export interface LsSettings {
 }
 
 // ============================================================================
-// Runtime Types (Transient State)
+// Trim Status (Page Script → Content Script)
 // ============================================================================
 
 /**
- * Message role classification for trimming decisions
+ * Status payload from page script after trimming conversation data.
+ * Dispatched via CustomEvent to content script for status bar display.
  */
-export type MsgRole = 'user' | 'assistant' | 'system' | 'tool' | 'unknown';
-
-/**
- * Metadata for a candidate conversation message node
- */
-export interface NodeInfo {
-  node: HTMLElement; // Reference to DOM element
-  role: MsgRole; // Classified message role
-  id: string; // Stable identifier (data-message-id or generated)
-  y: number; // Vertical scroll position (getBoundingClientRect().top)
-  visible: boolean; // Visibility heuristic result
+export interface TrimStatus {
+  totalBefore: number; // Total visible messages before trim
+  keptAfter: number; // Visible messages kept after trim
+  removed: number; // Messages removed (totalBefore - keptAfter)
+  limit: number; // Current keep limit setting
 }
-
-/**
- * Trimmer state machine states
- */
-export type TrimmerStateType = 'IDLE' | 'OBSERVING' | 'PENDING_TRIM' | 'TRIMMING';
-
-/**
- * Trim mode for adaptive scheduling
- * BOOT: Aggressive, no debounce, queueMicrotask - before first paint
- * STEADY: Conservative, debounced, requestIdleCallback - after stabilization
- */
-export type TrimMode = 'BOOT' | 'STEADY';
-
-/**
- * Complete trimmer state
- */
-export interface TrimmerState {
-  current: TrimmerStateType;
-  observer: MutationObserver | null;
-  trimScheduled: boolean; // Debounce flag
-  lastTrimTime: number; // performance.now() of last trim
-  conversationRoot: HTMLElement | null;
-  settings: LsSettings; // Cached settings (refreshed on storage change)
-  trimMode: TrimMode; // Current trim mode (BOOT or STEADY)
-  bootStartTime: number; // performance.now() when BOOT mode started
-}
-
-/**
- * Options for evaluateTrim function
- */
-export interface EvaluateTrimOptions {
-  force?: boolean; // Force trim even if recently executed
-  settings?: LsSettings; // Settings snapshot to use (prevents race conditions with async settings changes)
-}
-
-// ============================================================================
-// DOM Selector Strategy Types
-// ============================================================================
-
-/**
- * Multi-tier selector strategy for DOM resilience
- */
-export interface SelectorTier {
-  name: 'A' | 'B' | 'C';
-  description: string;
-  selectors: string[];
-  minCandidates: number; // Minimum valid results to accept this tier
-}
-
-export type SelectorTierName = 'A' | 'B' | 'C';
 
 // ============================================================================
 // Message Protocol Types (Runtime Communication)

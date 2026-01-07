@@ -14,53 +14,20 @@
 // Make this file a module for global augmentation to work
 export {};
 
+import {
+  trimMapping,
+  type ConversationData,
+} from '../shared/trimmer';
+import type { TrimStatus } from '../shared/types';
+
 // ============================================================================
-// Types
+// Types (Page Context Only)
 // ============================================================================
 
 interface LsConfig {
   enabled: boolean;
   limit: number;
   debug: boolean;
-}
-
-interface ChatMessage {
-  author?: {
-    role?: string;
-  };
-}
-
-interface ChatNode {
-  parent: string | null;
-  children?: string[];
-  message?: ChatMessage;
-}
-
-interface ChatMapping {
-  [nodeId: string]: ChatNode;
-}
-
-interface ConversationData {
-  mapping?: ChatMapping;
-  current_node?: string;
-  root?: string;
-}
-
-interface TrimResult {
-  mapping: ChatMapping;
-  current_node: string;
-  root: string;
-  keptCount: number;
-  totalCount: number;
-  visibleKept: number;
-  visibleTotal: number;
-}
-
-interface TrimStatus {
-  totalBefore: number;
-  keptAfter: number;
-  removed: number;
-  limit: number;
 }
 
 // ============================================================================
@@ -89,209 +56,6 @@ function log(...args: unknown[]): void {
   if (window.__LS_DEBUG__) {
     console.log('[LS:PageScript]', ...args);
   }
-}
-
-// ============================================================================
-// Trimming Logic
-// ============================================================================
-
-/**
- * Trim conversation mapping to keep only the last N messages in the thread.
- *
- * Algorithm:
- * 1. Start from current_node, walk up via parent links to build the full path
- * 2. Reverse to get chronological order (oldest first)
- * 3. Keep only the last `limit` nodes
- * 4. Rebuild mapping with only kept nodes, fixing parent/children links
- */
-/**
- * Roles that are NOT visible to users (hidden/internal).
- * Everything else (user, assistant, etc.) is considered visible.
- */
-const HIDDEN_ROLES = new Set([
-  'system',    // System prompts
-  'tool',      // Tool/function calls
-  'thinking',  // Extended Thinking internal nodes
-]);
-
-/**
- * Check if a node is a visible message.
- * A node is visible if it has a message with an author role that is NOT in HIDDEN_ROLES.
- * Nodes without messages (like root nodes) are not visible.
- */
-function isVisibleMessage(node: ChatNode): boolean {
-  const role = node.message?.author?.role;
-  // Must have a role to be considered a message
-  if (!role) return false;
-  // Exclude hidden/internal roles
-  return !HIDDEN_ROLES.has(role);
-}
-
-function trimMapping(data: ConversationData, limit: number): TrimResult | null {
-  const mapping = data.mapping;
-  const currentNode = data.current_node;
-
-  if (!mapping || !currentNode || !mapping[currentNode]) {
-    return null;
-  }
-
-  // Build path from current_node to root by following parent links
-  const path: string[] = [];
-  let cursor: string | null = currentNode;
-  const visited = new Set<string>();
-
-  while (cursor) {
-    const node: ChatNode | undefined = mapping[cursor];
-    if (!node || visited.has(cursor)) {
-      break;
-    }
-    visited.add(cursor);
-    path.push(cursor);
-    cursor = node.parent ?? null;
-  }
-
-  // Reverse to chronological order (oldest first)
-  path.reverse();
-
-  const totalCount = path.length;
-  const effectiveLimit = Math.max(1, limit);
-
-  // Count total TURNS (role transitions) and collect role statistics
-  let visibleTotal = 0;
-  let lastVisibleRole: string | null = null;
-  const roleCounts: Record<string, number> = {};
-  for (const nodeId of path) {
-    const node = mapping[nodeId];
-    const role = node?.message?.author?.role ?? '(no role)';
-    roleCounts[role] = (roleCounts[role] ?? 0) + 1;
-    if (node && isVisibleMessage(node)) {
-      // Count turns, not individual nodes
-      if (role !== lastVisibleRole) {
-        visibleTotal++;
-        lastVisibleRole = role;
-      }
-    }
-  }
-  // Always log roles for diagnostics (bypasses debug flag)
-  console.log('[LS:PageScript] Roles in path:', roleCounts, '| turns:', visibleTotal, '/', totalCount, 'nodes');
-
-  // Find cut point by counting TURNS (role transitions), not individual nodes
-  // A turn is a contiguous sequence of messages from the same role
-  // This matches how ChatGPT renders messages (multiple nodes = 1 bubble)
-  //
-  // We iterate backwards (newest to oldest) and count turns on role changes.
-  // When we've counted N turns and see a NEW turn (N+1), we break.
-  // cutIndex = i+1 ensures we keep all nodes of the Nth turn.
-  let turnCount = 0;
-  let cutIndex = 0;
-  let lastRole: string | null = null;
-
-  for (let i = path.length - 1; i >= 0; i--) {
-    const nodeId = path[i];
-    if (!nodeId) continue;
-
-    const node = mapping[nodeId];
-    if (node && isVisibleMessage(node)) {
-      const role = node.message?.author?.role ?? '';
-      // Count turn when role changes (or first visible message)
-      if (role !== lastRole) {
-        turnCount++;
-        lastRole = role;
-      }
-      // Break when we've EXCEEDED the limit (entering turn N+1)
-      // This ensures all nodes of turn N are included
-      if (turnCount > effectiveLimit) {
-        cutIndex = i + 1; // Start from the first node of the Nth turn
-        break;
-      }
-    }
-  }
-
-  const keptRaw = path.slice(cutIndex);
-
-  // Filter to ONLY user/assistant nodes (remove system/tool that got included)
-  const kept = keptRaw.filter(id => {
-    const node = mapping[id];
-    return node && isVisibleMessage(node);
-  });
-
-  if (kept.length === 0) {
-    return null;
-  }
-
-  // Preserve original root node - ChatGPT needs this "(no role)" node as tree anchor
-  const originalRootId = path[0];
-  const originalRootNode = originalRootId ? mapping[originalRootId] : null;
-  const hasOriginalRoot = originalRootId && originalRootNode;
-
-  // Build new mapping with kept nodes + original root
-  const newMapping: ChatMapping = {};
-  let turnsKept = 0;
-  let prevRole: string | null = null;
-
-  // Add original root node first (the "(no role)" anchor node)
-  if (hasOriginalRoot) {
-    newMapping[originalRootId] = {
-      ...originalRootNode,
-      parent: null,
-      children: kept[0] ? [kept[0]] : [],
-    };
-  }
-
-  // Add kept visible nodes
-  for (let i = 0; i < kept.length; i++) {
-    const id = kept[i];
-    if (!id) continue;
-
-    // First kept node's parent is originalRoot (if exists), otherwise null
-    const prevId = i === 0 ? (hasOriginalRoot ? originalRootId : null) : kept[i - 1];
-    const nextId = kept[i + 1] ?? null;
-    const originalNode = mapping[id];
-
-    if (originalNode) {
-      newMapping[id] = {
-        ...originalNode,
-        parent: prevId ?? null,
-        children: nextId ? [nextId] : [],
-      };
-      // Count turns (role transitions) for accurate display
-      const role = originalNode.message?.author?.role ?? '';
-      if (role !== prevRole && isVisibleMessage(originalNode)) {
-        turnsKept++;
-        prevRole = role;
-      }
-    }
-  }
-
-  const visibleKept = turnsKept;
-
-  // Use original root if available, otherwise first kept node
-  const newRoot = hasOriginalRoot ? originalRootId : kept[0];
-  const newCurrentNode = kept[kept.length - 1];
-
-  // These should always be defined since kept.length > 0, but TypeScript needs assurance
-  if (!newRoot || !newCurrentNode) {
-    return null;
-  }
-
-  // Always log trim result for diagnostics
-  const keptRoles: Record<string, number> = {};
-  for (const id of kept) {
-    const node = mapping[id];
-    const role = node?.message?.author?.role ?? '(no role)';
-    keptRoles[role] = (keptRoles[role] ?? 0) + 1;
-  }
-  console.log('[LS:PageScript] Kept roles:', keptRoles, '| visible kept:', visibleKept);
-
-  return {
-    mapping: newMapping,
-    current_node: newCurrentNode,
-    root: newRoot,
-    keptCount: kept.length,
-    totalCount,
-    visibleKept,
-    visibleTotal,
-  };
 }
 
 // ============================================================================

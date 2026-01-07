@@ -3,7 +3,7 @@
  * All magic numbers, timing values, and selector definitions
  */
 
-import type { LsSettings, SelectorTier } from './types';
+import type { LsSettings } from './types';
 
 // ============================================================================
 // Default Settings
@@ -100,112 +100,6 @@ export const TIMING = {
    */
   PROXY_READY_TIMEOUT_MS: 1000,
 } as const;
-
-// ============================================================================
-// DOM Constants
-// ============================================================================
-
-export const DOM = {
-  /**
-   * Minimum valid message nodes required to proceed with trim evaluation.
-   *
-   * Rationale:
-   * - At least 2 messages needed for a meaningful conversation
-   * - Prevents accidental page destruction on selector failures
-   * - Acts as fail-safe when ChatGPT DOM structure changes
-   * - If fewer candidates found, all selector tiers have failed
-   */
-  MIN_CANDIDATES: 2,
-
-  /**
-   * Pixel threshold for "at bottom" scroll detection.
-   *
-   * Rationale:
-   * - 100px accounts for floating UI elements at page bottom
-   * - Formula: scrollTop + clientHeight + threshold >= scrollHeight
-   * - Prevents false negatives when user is "almost" at bottom
-   * - Not too large to trigger when genuinely scrolled up
-   */
-  BOTTOM_THRESHOLD_PX: 100,
-
-  /**
-   * Tolerance for Y-coordinate monotonicity validation (px).
-   *
-   * Rationale:
-   * - Messages should appear in visual order (increasing Y)
-   * - 4px tolerance handles subpixel rendering and layout shifts
-   * - Prevents false positives from floating-point rounding
-   * - If sequence is non-monotonic beyond tolerance, selector failed
-   */
-  Y_TOLERANCE_PX: 4,
-
-  /**
-   * Comment marker prefix for removed DOM nodes.
-   * Format: "ls-removed-{messageId}-{role}"
-   *
-   * Rationale:
-   * - Preserves DOM structure for debugging
-   * - Allows identification of which messages were trimmed
-   * - Won't affect ChatGPT's functionality
-   */
-  REMOVAL_MARKER: 'ls-removed',
-} as const;
-
-// ============================================================================
-// Selector Tier Definitions
-// ============================================================================
-
-/**
- * Multi-tier selector strategy for DOM resilience
- * Try Tier A first, fallback to B, then C if necessary
- */
-export const SELECTOR_TIERS: Readonly<SelectorTier[]> = [
-  {
-    name: 'A',
-    description: 'Conversation turn containers',
-    selectors: [
-      '[data-message-id]',
-      'article[data-message-id]',
-      '[data-message-author]',
-      '[data-message-author-role]',
-      '[data-turn]',
-      '[data-testid=conversation-turn]',
-      '[data-testid^=conversation-turn-]',
-      '[data-testid=assistant-turn]',
-      '[data-testid=user-turn]'
-    ],
-    minCandidates: DOM.MIN_CANDIDATES,
-  },
-  {
-    name: 'B',
-    description: 'Semantic fallbacks (roles + test IDs)',
-    selectors: [
-      '[data-testid="conversation-turn"]',
-      '[data-testid^="conversation-turn-"]',
-      '[data-testid="assistant-turn"]',
-      '[data-testid="user-turn"]',
-      '[data-testid*="message" i]',
-      '[data-turn]',
-      'article[role="article"]',
-      'div[role="article"]',
-      'section[aria-label*="chat history" i] article',
-      'ol[role="list"] > li[role="listitem"] article',
-      'div[class*="conversation-turn" i]',
-    ],
-    minCandidates: DOM.MIN_CANDIDATES,
-  },
-  {
-    name: 'C',
-    description: 'Defensive (structural + heuristics)',
-    selectors: [
-      'main article',
-      'main > div > div',
-      '[role="main"] article',
-      '[role="main"] > div > div',
-    ], // Must be filtered by isLikelyMessage()
-    minCandidates: DOM.MIN_CANDIDATES,
-  },
-] as const;
 
 // ============================================================================
 // Logging Constants

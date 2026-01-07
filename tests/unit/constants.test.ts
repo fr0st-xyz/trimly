@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { TIMING, DOM, VALIDATION, DEFAULT_SETTINGS } from '../../extension/src/shared/constants';
+import { TIMING, VALIDATION, DEFAULT_SETTINGS } from '../../extension/src/shared/constants';
 
 describe('TIMING constants', () => {
   it('DEBOUNCE_MS is a reasonable debounce value', () => {
@@ -31,26 +31,6 @@ describe('TIMING constants', () => {
   it('MESSAGE_TIMEOUT_MS allows for slow responses', () => {
     expect(TIMING.MESSAGE_TIMEOUT_MS).toBeGreaterThanOrEqual(100);
     expect(TIMING.MESSAGE_TIMEOUT_MS).toBeLessThanOrEqual(5000);
-  });
-});
-
-describe('DOM constants', () => {
-  it('MIN_CANDIDATES is at least 2', () => {
-    expect(DOM.MIN_CANDIDATES).toBeGreaterThanOrEqual(2);
-  });
-
-  it('BOTTOM_THRESHOLD_PX is positive', () => {
-    expect(DOM.BOTTOM_THRESHOLD_PX).toBeGreaterThan(0);
-  });
-
-  it('Y_TOLERANCE_PX is small but positive', () => {
-    expect(DOM.Y_TOLERANCE_PX).toBeGreaterThan(0);
-    expect(DOM.Y_TOLERANCE_PX).toBeLessThanOrEqual(10);
-  });
-
-  it('REMOVAL_MARKER is a non-empty string', () => {
-    expect(DOM.REMOVAL_MARKER).toBeTruthy();
-    expect(typeof DOM.REMOVAL_MARKER).toBe('string');
   });
 });
 

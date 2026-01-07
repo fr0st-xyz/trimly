@@ -10,7 +10,7 @@
  */
 
 import browser from '../shared/browser-polyfill';
-import type { LsSettings } from '../shared/types';
+import type { LsSettings, TrimStatus } from '../shared/types';
 import { loadSettings, validateSettings } from '../shared/storage';
 import { TIMING } from '../shared/constants';
 import { setDebugMode, logDebug, logInfo, logWarn, logError } from '../shared/logger';
@@ -30,11 +30,19 @@ interface PageScriptConfig {
   debug: boolean;
 }
 
-interface TrimStatus {
-  totalBefore: number;
-  keptAfter: number;
-  removed: number;
-  limit: number;
+/**
+ * Type guard for TrimStatus.
+ * Validates that event.detail from page script has expected shape.
+ */
+function isValidTrimStatus(obj: unknown): obj is TrimStatus {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const s = obj as Record<string, unknown>;
+  return (
+    typeof s.totalBefore === 'number' &&
+    typeof s.keptAfter === 'number' &&
+    typeof s.removed === 'number' &&
+    typeof s.limit === 'number'
+  );
 }
 
 // ============================================================================
@@ -80,10 +88,11 @@ function dispatchConfig(settings: LsSettings): void {
  * Handle trim status from the page script.
  * Updates the status bar with trim statistics.
  */
-function handleTrimStatus(event: CustomEvent<TrimStatus>): void {
+function handleTrimStatus(event: CustomEvent<unknown>): void {
   const status = event.detail;
 
-  if (!status || typeof status !== 'object') {
+  if (!isValidTrimStatus(status)) {
+    logWarn('Invalid trim status received:', status);
     return;
   }
 
@@ -242,7 +251,7 @@ function setupNavigationDetection(): void {
  */
 function setupEventListeners(): void {
   // Listen for trim status from page script
-  window.addEventListener('lightsession-status', ((event: CustomEvent<TrimStatus>) => {
+  window.addEventListener('lightsession-status', ((event: CustomEvent<unknown>) => {
     handleTrimStatus(event);
   }) as EventListener);
 
