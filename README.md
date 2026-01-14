@@ -4,7 +4,7 @@ Keep ChatGPT fast by keeping only the last N messages in the DOM.
 Local-only, privacy-first browser extension that fixes UI lag in long conversations.
 
 [![Firefox Add-on](https://img.shields.io/amo/v/lightsession-for-chatgpt?label=Firefox%20Add-on)](https://addons.mozilla.org/en-US/firefox/addon/lightsession-for-chatgpt/)
-[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/fhloegjhggnokmkboompifoabpbcplgd?label=Chrome%20Web%20Store)](https://chromewebstore.google.com/detail/lightsession-pro-for-chat/fhloegjhggnokmkboompifoabpbcplgd)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/cenmillohidhjjjjiocmddkgmlonaigp?label=Chrome%20Web%20Store)](https://chromewebstore.google.com/detail/lightsession-pro/cenmillohidhjjjjiocmddkgmlonaigp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -63,7 +63,7 @@ Built after too many coding sessions where a single ChatGPT tab would start eati
 
 ### Chrome
 
-**[Install from Chrome Web Store](https://chromewebstore.google.com/detail/lightsession-pro-for-chat/fhloegjhggnokmkboompifoabpbcplgd)**
+**[Install from Chrome Web Store](https://chromewebstore.google.com/detail/lightsession-pro/cenmillohidhjjjjiocmddkgmlonaigp)**
 
 ### After installation
 
