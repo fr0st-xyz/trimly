@@ -6,6 +6,7 @@
 import { TIMING } from '../shared/constants';
 
 const STATUS_BAR_ID = 'lightsession-status-bar';
+const WAITING_TEXT = 'LightSession · waiting for messages…';
 
 export interface StatusBarStats {
   totalMessages: number;
@@ -163,6 +164,12 @@ function renderStatusBar(displayStats: StatusBarStats): void {
   lastUpdateTime = performance.now();
 }
 
+function renderWaitingStatusBar(bar: HTMLElement): void {
+  bar.textContent = WAITING_TEXT;
+  applyStateStyles(bar, 'waiting');
+  lastUpdateTime = performance.now();
+}
+
 /**
  * Update the status bar with new stats (throttled, with change detection)
  */
@@ -244,23 +251,22 @@ export function showLayoutNotRecognized(): void {
  */
 export function showStatusBar(): void {
   isVisible = true;
-  const bar = document.getElementById(STATUS_BAR_ID);
-
-  if (bar) {
-    bar.style.display = 'block';
-    if (currentStats) {
-      const { text, state } = getStatusText(currentStats);
-      bar.textContent = text;
-      applyStateStyles(bar, state);
-    }
-  } else if (currentStats) {
-    const newBar = getOrCreateStatusBar();
-    if (newBar) {
-      const { text, state } = getStatusText(currentStats);
-      newBar.textContent = text;
-      applyStateStyles(newBar, state);
-    }
+  const bar = getOrCreateStatusBar();
+  if (!bar) {
+    return;
   }
+
+  bar.style.display = 'block';
+
+  if (currentStats) {
+    const { text, state } = getStatusText(currentStats);
+    bar.textContent = text;
+    applyStateStyles(bar, state);
+    lastUpdateTime = performance.now();
+    return;
+  }
+
+  renderWaitingStatusBar(bar);
 }
 
 /**
@@ -301,6 +307,45 @@ export function removeStatusBar(): void {
  */
 export function resetAccumulatedTrimmed(): void {
   accumulatedTrimmed = 0;
+  currentStats = null;
+  pendingStats = null;
+
+  if (!isVisible) {
+    return;
+  }
+
+  const bar = getOrCreateStatusBar();
+  if (!bar) {
+    return;
+  }
+
+  renderWaitingStatusBar(bar);
+}
+
+/**
+ * Refresh status bar after SPA navigation or DOM resets
+ */
+export function refreshStatusBar(): void {
+  if (!isVisible) {
+    return;
+  }
+
+  const bar = getOrCreateStatusBar();
+  if (!bar) {
+    return;
+  }
+
+  bar.style.display = 'block';
+
+  if (currentStats) {
+    const { text, state } = getStatusText(currentStats);
+    bar.textContent = text;
+    applyStateStyles(bar, state);
+    lastUpdateTime = performance.now();
+    return;
+  }
+
+  renderWaitingStatusBar(bar);
 }
 
 /**

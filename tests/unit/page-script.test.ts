@@ -494,3 +494,61 @@ describe('error handling', () => {
     expect(!valid.mapping || !valid.current_node).toBe(false);
   });
 });
+
+// ============================================================================
+// Config Gating Behavior (runtime fetch interception)
+// ============================================================================
+
+describe('config gating in fetch interception', () => {
+  const mockedTrimMapping = vi.mocked(trimMapping);
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    localStorage.clear();
+    document.body.innerHTML = '';
+    delete (window as unknown as { __LS_PROXY_PATCHED__?: boolean }).__LS_PROXY_PATCHED__;
+    delete (window as unknown as { __LS_CONFIG__?: unknown }).__LS_CONFIG__;
+    delete (window as unknown as { __LS_DEBUG__?: boolean }).__LS_DEBUG__;
+  });
+
+  it('skips trimming when config is not received', async () => {
+    const conversationData = createConversationData(4);
+    const nativeFetch = vi.fn(async () => createMockResponse(conversationData));
+
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = nativeFetch;
+
+    await import('../../extension/src/page/page-script');
+
+    await window.fetch('https://chatgpt.com/backend-api/conversation/123');
+
+    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(mockedTrimMapping).not.toHaveBeenCalled();
+  });
+
+  it('trims when config is available from localStorage', async () => {
+    localStorage.setItem('ls_config', JSON.stringify({ enabled: true, limit: 2, debug: false }));
+
+    const conversationData = createConversationData(4);
+    const nativeFetch = vi.fn(async () => createMockResponse(conversationData));
+
+    mockedTrimMapping.mockReturnValue({
+      mapping: conversationData.mapping,
+      current_node: 'node-3',
+      root: 'node-0',
+      keptCount: 2,
+      totalCount: 4,
+      visibleKept: 2,
+      visibleTotal: 4,
+    });
+
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = nativeFetch;
+
+    await import('../../extension/src/page/page-script');
+
+    await window.fetch('https://chatgpt.com/backend-api/conversation/123');
+
+    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(mockedTrimMapping).toHaveBeenCalledTimes(1);
+  });
+});

@@ -17,6 +17,7 @@ import { setDebugMode, logDebug, logInfo, logWarn, logError } from '../shared/lo
 import {
   updateStatusBar,
   resetAccumulatedTrimmed,
+  refreshStatusBar,
   setStatusBarVisibility,
 } from './status-bar';
 
@@ -223,6 +224,7 @@ function setupNavigationDetection(): void {
       lastPath = location.pathname;
       logDebug('Popstate navigation:', lastPath);
       resetAccumulatedTrimmed();
+      refreshStatusBar();
     }
   });
 
@@ -236,6 +238,7 @@ function setupNavigationDetection(): void {
       lastPath = location.pathname;
       logDebug('PushState navigation:', lastPath);
       resetAccumulatedTrimmed();
+      refreshStatusBar();
     }
     return result;
   };
@@ -246,6 +249,7 @@ function setupNavigationDetection(): void {
       lastPath = location.pathname;
       logDebug('ReplaceState navigation:', lastPath);
       resetAccumulatedTrimmed();
+      refreshStatusBar();
     }
     return result;
   };

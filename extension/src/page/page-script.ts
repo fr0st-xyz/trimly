@@ -90,6 +90,8 @@ async function ensureConfigReady(timeoutMs = 50): Promise<void> {
   tryResolveConfigReady();
 }
 
+let configReceived = false;
+
 /**
  * localStorage key - must match storage.ts LOCAL_STORAGE_KEY
  */
@@ -105,6 +107,7 @@ function loadFromLocalStorage(): LsConfig | null {
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<LsConfig>;
+      configReceived = true;
       return {
         enabled: parsed.enabled ?? DEFAULT_CONFIG.enabled,
         limit: Math.max(1, parsed.limit ?? DEFAULT_CONFIG.limit),
@@ -268,6 +271,11 @@ async function interceptedFetch(
 
   const cfg = getConfig();
 
+  // If config was never received, avoid trimming to prevent incorrect behavior.
+  if (!configReceived) {
+    return nativeFetch(...args);
+  }
+
   // Skip if disabled
   if (!cfg.enabled) {
     return nativeFetch(...args);
@@ -391,6 +399,7 @@ function setupConfigListener(): void {
     }
 
     if (config && typeof config === 'object') {
+      configReceived = true;
       // Update debug flag first so logging works immediately
       window.__LS_DEBUG__ = config.debug ?? false;
 
