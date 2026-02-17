@@ -7,7 +7,7 @@
     "node": ">=24.10.0"
   },
   "scripts": {
-    "build": "node build.cjs",
+    "build": "npm run build:firefox && npm run build:chrome",
     "build:firefox": "node build.cjs --target=firefox",
     "build:chrome": "node build.cjs --target=chrome",
     "build:types": "tsc --noEmit",

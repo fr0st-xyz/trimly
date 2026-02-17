@@ -1,35 +1,50 @@
 # Contributing to Trimly
 
-Thank you for your interest in contributing to Trimly! This Firefox extension helps keep ChatGPT fast by optimizing DOM performance.
+Thank you for your interest in contributing to Trimly! This extension helps keep ChatGPT fast by optimizing DOM performance.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 24.10.0+ (use [fnm](https://github.com/Schniz/fnm) or check `.node-version`)
-- Firefox Developer Edition (recommended) or Firefox stable
+- Node.js 24.10.0+ (use [fnm](https://github.com/Schniz/fnm) or check [.node-version](./node-version)
 
 ### Development Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/11me/trimly.git
+git clone https://github.com/fr0st-xyz/trimly.git
 cd trimly
 
 # Install dependencies
 npm install
 
-# Start development mode
-npm run dev
-```
+# Firefox
+npm run build:firefox
+# Open: about:debugging#/runtime/this-firefox
+# Click: Load Temporary Add-on
+# Select: trimly/extension/manifest.json
 
-For detailed architecture and development guide, see [docs/development.md](docs/development.md).
+# ------------------------------------
+
+# Chrome
+npm run build:chrome
+# Open chrome://extensions
+# Enable Developer mode
+# Click Load unpacked
+# Select: trimly/extension
+
+# ------------------------------------
+
+# All
+npm run build
+
+```
 
 ## How to Contribute
 
 ### Reporting Bugs
 
-1. Check [existing issues](https://github.com/11me/trimly/issues) first
+1. Check [existing issues](https://github.com/fr0st-xyz/trimly/issues) first
 2. Create a new issue with:
    - Firefox version
    - Extension version
@@ -38,7 +53,7 @@ For detailed architecture and development guide, see [docs/development.md](docs/
 
 ### Suggesting Features
 
-Open an issue with the `enhancement` label describing:
+Open an issue describing:
 - The problem you're trying to solve
 - Your proposed solution
 - Any alternatives you've considered
@@ -51,38 +66,8 @@ Open an issue with the `enhancement` label describing:
 4. Run checks:
    ```bash
    npm run lint
-   npm run test
    npm run build:types
    npm run build
    ```
 5. Commit with a clear message
 6. Push and open a Pull Request
-
-### Code Style
-
-- TypeScript with strict mode
-- ESLint + Prettier for formatting
-- Run `npm run lint:fix` before committing
-
-### Pull Request Guidelines
-
-- Keep PRs focused on a single change
-- Update tests if adding new functionality
-- Ensure all CI checks pass
-- Reference related issues in the PR description
-
-## Project Structure
-
-```
-trimly/
-├── extension/src/     # TypeScript source code
-│   ├── content/       # Content script (DOM trimming logic)
-│   ├── popup/         # Extension popup UI
-│   └── shared/        # Shared utilities
-├── tests/             # Unit tests (vitest)
-└── docs/              # Documentation
-```
-
-## Questions?
-
-Feel free to open an issue or start a discussion. We're happy to help!
