@@ -111,12 +111,12 @@ function hideTurn(turn: HTMLElement): boolean {
 
 function unhideAll(root: ParentNode): void {
   const trimmed = root.querySelectorAll<HTMLElement>(`[${HIDDEN_ATTR}]`);
-  for (const turn of trimmed) {
+  for (const turn of Array.from(trimmed)) {
     unhideTurn(turn);
   }
 
   const trimmedActions = root.querySelectorAll<HTMLElement>(`[${HIDDEN_ACTION_ATTR}]`);
-  for (const action of trimmedActions) {
+  for (const action of Array.from(trimmedActions)) {
     action.removeAttribute(HIDDEN_ACTION_ATTR);
     action.style.removeProperty('display');
   }
@@ -171,7 +171,8 @@ function getMessageIdForElement(el: HTMLElement): string | null {
   if (own) {
     return own;
   }
-  return el.closest<HTMLElement>('[data-message-id]')?.getAttribute('data-message-id') ?? null;
+  const closest = el.closest('[data-message-id]');
+  return closest?.getAttribute('data-message-id') ?? null;
 }
 
 function collectVisibleMessageIds(visibleTurns: Set<HTMLElement>): Set<string> {
@@ -182,7 +183,7 @@ function collectVisibleMessageIds(visibleTurns: Set<HTMLElement>): Set<string> {
       ids.add(own);
     }
     const nested = turn.querySelectorAll<HTMLElement>('[data-message-id]');
-    for (const el of nested) {
+    for (const el of Array.from(nested)) {
       const id = el.getAttribute('data-message-id');
       if (id) {
         ids.add(id);
@@ -210,7 +211,7 @@ function cleanupOrphanActionControls(root: ParentNode, visibleTurns: Set<HTMLEle
     'button, [role="button"], [role="menuitem"], [data-testid], [aria-label]'
   );
 
-  for (const control of controls) {
+  for (const control of Array.from(controls)) {
     if (!isActionControl(control)) {
       continue;
     }
@@ -276,13 +277,13 @@ function cleanupOrphanActionControls(root: ParentNode, visibleTurns: Set<HTMLEle
   // (menu/portal structures) where the actionable text is in nested spans/divs.
   // Detect those by text and hide the closest clickable container.
   const retryTextEls = root.querySelectorAll<HTMLElement>('span, div, p, [role="menuitem"]');
-  for (const el of retryTextEls) {
+  for (const el of Array.from(retryTextEls)) {
     if (!isRetryLikeText(el.textContent || '')) {
       continue;
     }
 
-    const target =
-      el.closest<HTMLElement>('button, [role="button"], [role="menuitem"], [data-testid]') || el;
+    const closest = el.closest('button, [role="button"], [role="menuitem"], [data-testid]');
+    const target = closest instanceof HTMLElement ? closest : el;
     const inVisibleTurn = belongsToVisibleTurn(target, visibleTurns);
     const messageId = getMessageIdForElement(target);
     const belongsToVisibleMessage = !!messageId && visibleMessageIds.has(messageId);
