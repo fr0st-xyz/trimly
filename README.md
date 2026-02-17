@@ -62,7 +62,7 @@
 
 ## ❓ FAQ
 
-### Why was Trimly created and why not use light-session??
+### Why was Trimly created and why not use light-session?
 
 **ChatGPT** gets slow after long conversations. After a while it starts lagging and it just feels heavy to use. That is the main reason **Trimly** exists.
 
