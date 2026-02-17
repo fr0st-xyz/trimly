@@ -45,7 +45,6 @@ let donateLink: HTMLButtonElement;
 let retentionCard: HTMLElement | null;
 let optionsCard: HTMLElement | null;
 let chatCountsElement: HTMLElement | null;
-let currentKeepSetting = 10;
 
 // Debounce/throttle state for slider persistence
 let sliderDebounceTimeout: number | null = null;
@@ -136,31 +135,6 @@ async function isDevMode(): Promise<boolean> {
     return response.ok;
   } catch {
     return false;
-  }
-}
-
-/**
- * Reload active ChatGPT tab so older messages can be fetched again.
- * Needed when keep value increases beyond what is currently loaded.
- */
-async function reloadActiveChatGPTTab(): Promise<void> {
-  try {
-    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    const activeTab = tabs[0];
-    if (!activeTab?.id || !activeTab.url) {
-      return;
-    }
-
-    const isChatGPT =
-      activeTab.url.includes('chat.openai.com') ||
-      activeTab.url.includes('chatgpt.com');
-    if (!isChatGPT) {
-      return;
-    }
-
-    await browser.tabs.reload(activeTab.id);
-  } catch (error) {
-    console.error('Failed to reload active tab:', error);
   }
 }
 
@@ -259,7 +233,6 @@ async function loadSettings(): Promise<void> {
     keepSlider.value = settings.keep.toString();
     keepValue.textContent = settings.keep.toString();
     keepSlider.setAttribute('aria-valuenow', settings.keep.toString());
-    currentKeepSetting = settings.keep;
     updateSliderTrackFill();
 
     if (showStatusBarCheckbox) {
@@ -327,7 +300,6 @@ function handleKeepSliderInput(): void {
  */
 async function handleKeepSliderChange(): Promise<void> {
   const value = parseInt(keepSlider.value, 10);
-  const previousKeep = currentKeepSetting;
 
   // Clear any pending debounced updates
   if (sliderDebounceTimeout !== null) {
@@ -338,14 +310,6 @@ async function handleKeepSliderChange(): Promise<void> {
 
   // Save immediately (page script receives new config without reload)
   await updateSettings({ keep: value });
-  currentKeepSetting = value;
-
-  // Increasing retention requires re-fetching full conversation data.
-  // Do this automatically so older messages can appear again.
-  if (value > previousKeep) {
-    showStatus('Reloading chat to restore older messages…');
-    await reloadActiveChatGPTTab();
-  }
 }
 
 /**
@@ -420,7 +384,7 @@ async function refreshChatCounts(): Promise<void> {
     }
 
     const { visible, total } = response.counts;
-    chatCountsElement.textContent = `Current chat: ${visible} rounds / ${total} total rounds`;
+    chatCountsElement.textContent = `Showing ${visible} of ${total} messages`;
   } catch {
     chatCountsElement.textContent = 'Detecting messages...';
   }

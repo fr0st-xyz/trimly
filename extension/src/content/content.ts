@@ -69,6 +69,7 @@ let emptyChatObserver: MutationObserver | null = null;
 let userCollapse: UserCollapseController | null = null;
 let domTrimmer: DomTrimmerController | null = null;
 let authoritativeTotalRounds: number | null = null;
+let lastBackfillReloadAt = 0;
 
 // ============================================================================
 // Page Script Communication
@@ -184,6 +185,52 @@ function getChatCounts(): ChatCountPayload {
   };
 }
 
+function isConversationRoute(): boolean {
+  // ChatGPT conversation pages are typically /c/<id> (and shared routes).
+  const path = location.pathname || '';
+  return /^\/(c|share)\/[^/]+\/?$/.test(path);
+}
+
+function maybeReloadForBackfill(prevSettings: LsSettings | null, nextSettings: LsSettings): void {
+  if (!prevSettings) {
+    return;
+  }
+  if (!nextSettings.enabled) {
+    return;
+  }
+  if (nextSettings.keep <= prevSettings.keep) {
+    return;
+  }
+
+  const domRounds = getDomChatCounts().total;
+  const totalRounds = authoritativeTotalRounds === null
+    ? domRounds
+    : Math.max(authoritativeTotalRounds, domRounds);
+
+  // If user increased keep beyond currently loaded rounds, ChatGPT must re-fetch
+  // older rounds. Trigger a single guarded reload only when strictly needed.
+  if (domRounds >= nextSettings.keep || totalRounds <= domRounds) {
+    return;
+  }
+  if (!isConversationRoute()) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastBackfillReloadAt < 8000) {
+    return;
+  }
+  lastBackfillReloadAt = now;
+
+  logInfo(
+    'Reloading conversation to backfill older rounds',
+    { domRounds, totalRounds, keep: nextSettings.keep }
+  );
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 120);
+}
+
 /**
  * Handle proxy ready message from page script.
  * Called when the page script has successfully patched window.fetch.
@@ -261,6 +308,7 @@ function applySettings(settings: LsSettings): void {
     enabled: settings.enabled,
     keep: settings.keep,
   });
+  maybeReloadForBackfill(prevSettings, settings);
 
   logDebug('Settings applied:', settings);
 }

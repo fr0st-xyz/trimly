@@ -84,6 +84,12 @@ function unhideTurn(turn: HTMLElement): boolean {
   }
   turn.removeAttribute(HIDDEN_ATTR);
   turn.style.removeProperty('display');
+  turn.style.removeProperty('height');
+  turn.style.removeProperty('min-height');
+  turn.style.removeProperty('margin');
+  turn.style.removeProperty('padding');
+  turn.style.removeProperty('overflow');
+  turn.style.removeProperty('pointer-events');
   return true;
 }
 
@@ -92,7 +98,14 @@ function hideTurn(turn: HTMLElement): boolean {
     return false;
   }
   turn.setAttribute(HIDDEN_ATTR, '1');
-  turn.style.display = 'none';
+  // Force full layout collapse so hidden turns never reserve scroll space.
+  turn.style.setProperty('display', 'none', 'important');
+  turn.style.setProperty('height', '0', 'important');
+  turn.style.setProperty('min-height', '0', 'important');
+  turn.style.setProperty('margin', '0', 'important');
+  turn.style.setProperty('padding', '0', 'important');
+  turn.style.setProperty('overflow', 'hidden', 'important');
+  turn.style.setProperty('pointer-events', 'none', 'important');
   return true;
 }
 
@@ -364,6 +377,7 @@ export function installDomTrimmer(
   let observerRoot: HTMLElement | null = null;
   let scheduled = false;
   let isApplying = false;
+  let forceBottomAnchor = false;
 
   const getScrollContainer = (): HTMLElement => {
     const scroller = document.scrollingElement;
@@ -384,6 +398,8 @@ export function installDomTrimmer(
     const scroller = getScrollContainer();
     const prevTop = scroller.scrollTop;
     const prevHeight = scroller.scrollHeight;
+    const prevBottomOffset = prevHeight - (prevTop + scroller.clientHeight);
+    const wasNearBottom = prevBottomOffset <= 8;
 
     isApplying = true;
     if (!config.enabled) {
@@ -413,10 +429,14 @@ export function installDomTrimmer(
       return;
     }
 
-    const nextHeight = scroller.scrollHeight;
-    const delta = nextHeight - prevHeight;
-    if (delta !== 0) {
-      scroller.scrollTop = prevTop + delta;
+    // Avoid jitter from aggressive delta correction on long chats.
+    // Keep bottom anchor when user is near bottom, or immediately after
+    // settings changes so the kept latest messages are visible.
+    const shouldAnchorBottom = wasNearBottom || forceBottomAnchor;
+    forceBottomAnchor = false;
+    if (shouldAnchorBottom) {
+      const nextHeight = scroller.scrollHeight;
+      scroller.scrollTop = Math.max(0, nextHeight - scroller.clientHeight);
     }
   };
 
@@ -467,10 +487,15 @@ export function installDomTrimmer(
 
   return {
     setConfig(nextConfig: DomTrimmerConfig): void {
+      const prevEnabled = config.enabled;
+      const prevKeep = config.keep;
       config = {
         enabled: nextConfig.enabled,
         keep: Math.max(1, nextConfig.keep),
       };
+      if (config.enabled && (prevEnabled !== config.enabled || prevKeep !== config.keep)) {
+        forceBottomAnchor = true;
+      }
 
       logDebug('DOM trimmer config updated:', config);
       ensureObserver();
