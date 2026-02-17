@@ -68,6 +68,8 @@ body::-webkit-scrollbar-thumb,
   border-radius: 100px;
 }
 
+
+
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover,
 .ls-popup::-webkit-scrollbar-thumb:hover,
@@ -256,6 +258,7 @@ body::-webkit-scrollbar-thumb:hover,
 }
 
 .ls-slider-mark {
+  font-family: var(--ls-font); 
   appearance: none;
   border: 0;
   background: transparent;
