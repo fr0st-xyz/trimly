@@ -42,7 +42,7 @@
       Firefox, Floorp, Zen
     </td>
     <td align="center">
-      <a href="">
+      <a href="https://addons.mozilla.org/firefox/addon/trimly/">
         <img src="./extension/assets/download/download-firefox.svg" width="130" alt="Download for Firefox">
       </a>
     </td>
