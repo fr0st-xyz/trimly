@@ -44,18 +44,22 @@ const BAR_BASE_STYLE: StyleMap = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   pointerEvents: 'none',
-  transition: 'opacity 0.2s ease',
+  transition:
+    'padding 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease',
   display: 'inline-flex',
   alignItems: 'center',
   gap: '5px',
 };
 
 const BAR_STATE_BASE_STYLE: StyleMap = {
-  opacity: '1',
   color: '#ffffff',
   backgroundColor: 'rgba(0, 0, 0, 0.9)',
   borderColor: 'rgba(255, 255, 255, 0.18)',
   padding: '7px 12px',
+  width: 'auto',
+  height: 'auto',
+  gap: '5px',
+  justifyContent: 'flex-start',
 };
 
 const BAR_STATE_STYLE: Record<StatusBarState, StyleMap> = {
@@ -66,7 +70,13 @@ const BAR_STATE_STYLE: Record<StatusBarState, StyleMap> = {
   },
   waiting: {
     color: '#a3a3a3',
-    padding: '4px 8px',
+    padding: '0',
+    width: '44px',
+    height: '44px',
+    gap: '0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: '999px',
   },
   'all-visible': {},
   unrecognized: {
@@ -127,9 +137,16 @@ function ensureStatusBarStyles(): void {
   const style = document.createElement('style');
   style.id = STATUS_BAR_STYLE_ID;
   style.textContent = `
+    .ls-status-logo-wrap {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+    }
+
     .ls-status-logo {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       display: block;
       flex-shrink: 0;
       border-radius: 3px;
@@ -174,7 +191,7 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 
 function setBarText(bar: HTMLElement, text: string, state: StatusBarState): void {
   if (state === 'waiting') {
-    bar.innerHTML = `<img class="ls-status-logo" src="${STATUS_LOGO_URL}" alt="" aria-hidden="true">`;
+    bar.innerHTML = `<span class="ls-status-logo-wrap"><img class="ls-status-logo" src="${STATUS_LOGO_URL}" alt="" aria-hidden="true"></span>`;
     return;
   }
   bar.textContent = text;
@@ -381,7 +398,7 @@ export function refreshStatusBar(): void {
 
   if (currentStats) {
     const { text, state } = getStatusText(currentStats);
-    bar.textContent = text;
+    setBarText(bar, text, state);
     applyStateStyles(bar, state);
     lastUpdateTime = performance.now();
     return;

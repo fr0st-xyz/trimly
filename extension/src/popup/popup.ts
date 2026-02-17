@@ -287,7 +287,6 @@ async function updateSettings(
       type: 'SET_SETTINGS',
       payload: updates,
     });
-
     if (!options.silent) {
       showStatus('Settings saved');
     }
@@ -445,7 +444,7 @@ function showStatus(message: string, isError: boolean = false): void {
 
   statusElement.textContent = message;
   statusElement.classList.toggle('error', isError);
-
+ 
   // Clear after 3 seconds
   statusClearTimeout = window.setTimeout(() => {
     statusClearTimeout = null;
