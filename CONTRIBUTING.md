@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Trimly! This extension helps keep
 
 ### Prerequisites
 
-- Node.js 24.10.0+ (use [fnm](https://github.com/Schniz/fnm) or check [.node-version](./node-version)
+- Node.js 24.10.0+ (use [fnm](https://github.com/Schniz/fnm) or check [.node-version](./.node-version)
 
 ### Development Setup
 
