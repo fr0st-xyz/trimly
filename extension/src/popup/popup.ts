@@ -423,14 +423,14 @@ async function refreshChatCounts(): Promise<void> {
     })) as ChatCountResponse | undefined;
 
     if (!response?.ok) {
-      chatCountsElement.textContent = 'Detecting messages...';
+      chatCountsElement.textContent = 'No messages detected';
       return;
     }
 
     const { visible, total } = response.counts;
     chatCountsElement.textContent = `Showing ${visible} of ${total} messages`;
   } catch {
-    chatCountsElement.textContent = 'Detecting messages...';
+    chatCountsElement.textContent = 'No messages detected';
   }
 }
 

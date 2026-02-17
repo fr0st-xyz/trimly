@@ -11,7 +11,7 @@
     "build:firefox": "node build.cjs --target=firefox",
     "build:chrome": "node build.cjs --target=chrome",
     "build:types": "tsc --noEmit",
-    "build:prod": "node build.cjs --production",
+    "build:prod": "npm run build:prod:firefox && npm run build:prod:chrome",
     "build:prod:firefox": "node build.cjs --target=firefox --production",
     "build:prod:chrome": "node build.cjs --target=chrome --production",
     "watch": "node build.cjs --watch",
