@@ -21,31 +21,42 @@
     <th>Browser</th>
     <th>Store</th>
   </tr>
+
   <tr>
-    <td><strong>Chromium-based</strong><br>Chrome, Brave, Opera</td>
+    <td>
+      <strong>Chromium-based</strong><br>
+      Chrome, Brave, Opera
+    </td>
     <td align="center">
       <a href="">
-        <img src="./extension/assets/download/download-chrome.svg" height="53" alt="Download for Chromium">
+        <img src="./extension/assets/download/download-chrome.svg" width="130" alt="Download for Chromium">
       </a>
     </td>
   </tr>
+
   <tr>
-    <td><strong>Firefox-based</strong><br>Firefox, Floorp, Zen</td>
+    <td>
+      <strong>Firefox-based</strong><br>
+      Firefox, Floorp, Zen
+    </td>
     <td align="center">
       <a href="">
-        <img src="./extension/assets/download/download-firefox.svg" height="53" alt="Download for Firefox">
+        <img src="./extension/assets/download/download-firefox.svg" width="130" alt="Download for Firefox">
       </a>
     </td>
   </tr>
-  <!---
+
+  <!--
   <tr>
     <td><strong>Microsoft Edge</strong></td>
     <td align="center">
       <a href="">
-        <img src="./extension/assets/download/download-edge.svg" height="53" alt="Download for Edge">
+        <img src="./extension/assets/download/download-edge.svg" width="240" alt="Download for Edge">
       </a>
     </td>
-  </tr>--->
+  </tr>
+  -->
+
 </table>
 
 
