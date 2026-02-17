@@ -10,6 +10,8 @@ import { logDebug } from '../shared/logger';
 const HIDDEN_ATTR = 'data-ls-dom-trimmed';
 const HIDDEN_ACTION_ATTR = 'data-ls-dom-trimmed-action';
 const HIDDEN_ROLES = new Set(['system', 'tool', 'thinking']);
+const TURN_CONTAINER_SELECTOR =
+  '[data-testid^="conversation-turn"], article[data-turn], [data-turn-id]';
 const ACTION_KEYWORDS = [
   'copy',
   'good response',
@@ -53,29 +55,64 @@ function getRoleFromTurn(turn: HTMLElement): string | null {
 }
 
 function getConversationTurns(root: ParentNode): HTMLElement[] {
-  const byMessageId = Array.from(
-    root.querySelectorAll<HTMLElement>('[data-message-id]')
-  );
-  if (byMessageId.length > 0) {
-    const normalized = byMessageId.map((el) => {
-      const outerTurn = el.closest<HTMLElement>(
-        '[data-testid^="conversation-turn"], [data-turn-id], article[data-turn]'
-      );
-      return outerTurn ?? el;
-    });
-    return Array.from(new Set(normalized));
+  const explicitTurns = Array.from(root.querySelectorAll<HTMLElement>(TURN_CONTAINER_SELECTOR));
+  if (explicitTurns.length > 0) {
+    return normalizeTurnSet(explicitTurns);
   }
 
-  const byTurnTestId = Array.from(
-    root.querySelectorAll<HTMLElement>(
-      '[data-testid^="conversation-turn"], [data-turn-id], article[data-turn]'
-    )
-  );
-  if (byTurnTestId.length > 0) {
-    return byTurnTestId;
+  // Fallback when explicit turn containers are not available in a given UI revision:
+  // map message nodes to a likely outer wrapper, but never trim raw leaf nodes.
+  const byMessageId = Array.from(root.querySelectorAll<HTMLElement>('[data-message-id]'));
+  const mapped: HTMLElement[] = [];
+  for (const el of byMessageId) {
+    const container = resolveTurnContainer(el);
+    if (container) {
+      mapped.push(container);
+    }
+  }
+  return normalizeTurnSet(mapped);
+}
+
+function resolveTurnContainer(el: HTMLElement): HTMLElement | null {
+  const explicit = el.closest<HTMLElement>(TURN_CONTAINER_SELECTOR);
+  if (explicit) {
+    return explicit;
   }
 
-  return [];
+  const article = el.closest<HTMLElement>('article');
+  if (article && article.querySelector('[data-message-id]')) {
+    return article;
+  }
+
+  return null;
+}
+
+function normalizeTurnSet(turns: HTMLElement[]): HTMLElement[] {
+  if (turns.length === 0) {
+    return [];
+  }
+
+  // Keep deterministic DOM order, dedupe, and drop nested children so we only trim
+  // top-level turn wrappers (prevents hidden inner nodes from leaving spacer shells).
+  const unique = Array.from(new Set(turns));
+  const result: HTMLElement[] = [];
+  for (const turn of unique) {
+    if (result.some((kept) => kept.contains(turn))) {
+      continue;
+    }
+
+    for (let i = result.length - 1; i >= 0; i--) {
+      const kept = result[i];
+      if (!kept) {
+        continue;
+      }
+      if (turn.contains(kept)) {
+        result.splice(i, 1);
+      }
+    }
+    result.push(turn);
+  }
+  return result;
 }
 
 function unhideTurn(turn: HTMLElement): boolean {
@@ -86,6 +123,7 @@ function unhideTurn(turn: HTMLElement): boolean {
   turn.style.removeProperty('display');
   turn.style.removeProperty('height');
   turn.style.removeProperty('min-height');
+  turn.style.removeProperty('max-height');
   turn.style.removeProperty('margin');
   turn.style.removeProperty('padding');
   turn.style.removeProperty('overflow');
@@ -102,6 +140,7 @@ function hideTurn(turn: HTMLElement): boolean {
   turn.style.setProperty('display', 'none', 'important');
   turn.style.setProperty('height', '0', 'important');
   turn.style.setProperty('min-height', '0', 'important');
+  turn.style.setProperty('max-height', '0', 'important');
   turn.style.setProperty('margin', '0', 'important');
   turn.style.setProperty('padding', '0', 'important');
   turn.style.setProperty('overflow', 'hidden', 'important');

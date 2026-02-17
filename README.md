@@ -83,6 +83,17 @@ No. I do not collect any data.
 
 **Trimly** runs locally in your browser. It does not collect, store, or send any of your data anywhere. No tracking. No analytics. Nothing leaves your device.
 
+## 📸 Showcase
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="/extension/assets/showcase/showcase.png" width="1200" alt="Trimly Showcase">
+    </td>
+  </tr>
+</table>
+
+
 
 ## 🔗 Credits 
 
