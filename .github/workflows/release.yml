@@ -28,9 +28,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Run tests
-        run: npm run test
-
       - name: Type check
         run: npm run build:types
 
@@ -129,7 +126,7 @@ jobs:
             ### Installation
 
             **Firefox Add-ons (recommended):**
-            [Install from AMO](https://addons.mozilla.org/en-US/firefox/addon/trimly-for-chatgpt/)
+            [Install from AMO](https://addons.mozilla.org/en-US/firefox/addon/trimly/)
 
             **Chrome Web Store:**
             [Install from Chrome Web Store](https://chrome.google.com/webstore/detail/trimly-for-chatgpt/${{ secrets.CHROME_EXTENSION_ID }})

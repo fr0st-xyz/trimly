@@ -191,7 +191,16 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 
 function setBarText(bar: HTMLElement, text: string, state: StatusBarState): void {
   if (state === 'waiting') {
-    bar.innerHTML = `<span class="ls-status-logo-wrap"><img class="ls-status-logo" src="${STATUS_LOGO_URL}" alt="" aria-hidden="true"></span>`;
+    bar.textContent = '';
+    const wrap = document.createElement('span');
+    wrap.className = 'ls-status-logo-wrap';
+    const logo = document.createElement('img');
+    logo.className = 'ls-status-logo';
+    logo.src = STATUS_LOGO_URL;
+    logo.alt = '';
+    logo.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(logo);
+    bar.appendChild(wrap);
     return;
   }
   bar.textContent = text;

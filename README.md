@@ -22,6 +22,7 @@
     <th>Store</th>
   </tr>
 
+<!--
   <tr>
     <td>
       <strong>Chromium-based</strong><br>
@@ -33,6 +34,7 @@
       </a>
     </td>
   </tr>
+-->
 
   <tr>
     <td>
