@@ -149,6 +149,7 @@ jobs:
       # Firefox Add-ons Publishing
       # =========================================================================
       - name: Publish to Firefox Add-ons
+        if: ${{ secrets.FIREFOX_ADDON_ID != '' && secrets.FIREFOX_API_ISSUER != '' && secrets.FIREFOX_API_SECRET != '' }}
         uses: browser-actions/release-firefox-addon@v0.2.1
         with:
           addon-id: ${{ secrets.FIREFOX_ADDON_ID }}
@@ -161,6 +162,7 @@ jobs:
       # Chrome Web Store Publishing
       # =========================================================================
       - name: Publish to Chrome Web Store
+        if: ${{ secrets.CHROME_EXTENSION_ID != '' && secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_CLIENT_SECRET != '' && secrets.CHROME_REFRESH_TOKEN != '' }}
         uses: browser-actions/release-chrome-extension@v0.2.1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
