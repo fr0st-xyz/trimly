@@ -34,6 +34,7 @@ function getOptionalElement<T extends HTMLElement>(id: string): T | null {
 let enableToggle: HTMLInputElement;
 let keepSlider: HTMLInputElement;
 let keepValue: HTMLElement;
+let keepUnitLabel: HTMLElement;
 let sliderTrackFill: HTMLElement;
 let showStatusBarCheckbox: HTMLInputElement | null;
 let collapseLongUserMessagesCheckbox: HTMLInputElement | null;
@@ -125,6 +126,10 @@ function updateSliderTrackFill(): void {
   sliderTrackFill.style.width = `${percentage}%`;
 }
 
+function updateKeepUnitLabel(value: number): void {
+  keepUnitLabel.textContent = value === 1 ? 'message' : 'messages';
+}
+
 /**
  * Check if running in development mode
  */
@@ -146,6 +151,7 @@ async function initialize(): Promise<void> {
   enableToggle = getRequiredElement<HTMLInputElement>('enableToggle');
   keepSlider = getRequiredElement<HTMLInputElement>('keepSlider');
   keepValue = getRequiredElement<HTMLElement>('keepValue');
+  keepUnitLabel = getRequiredElement<HTMLElement>('keepUnitLabel');
   sliderTrackFill = getRequiredElement<HTMLElement>('sliderTrackFill');
   statusElement = getRequiredElement<HTMLElement>('status');
   githubLink = getRequiredElement<HTMLButtonElement>('githubLink');
@@ -191,6 +197,21 @@ async function initialize(): Promise<void> {
   keepSlider.addEventListener('mouseup', () => {
     keepValue.classList.remove('is-dragging');
   });
+  const sliderMarks = document.querySelectorAll('.ls-slider-mark');
+  for (const node of sliderMarks) {
+    if (!(node instanceof HTMLButtonElement)) {
+      continue;
+    }
+    const mark = node;
+    mark.addEventListener('click', () => {
+      const rawValue = mark.getAttribute('data-value');
+      const parsed = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN;
+      if (Number.isNaN(parsed)) {
+        return;
+      }
+      void handleSliderMarkClick(parsed);
+    });
+  }
 
   if (showStatusBarCheckbox) {
     showStatusBarCheckbox.addEventListener('change', handleShowStatusBarToggle);
@@ -233,6 +254,7 @@ async function loadSettings(): Promise<void> {
     keepSlider.value = settings.keep.toString();
     keepValue.textContent = settings.keep.toString();
     keepSlider.setAttribute('aria-valuenow', settings.keep.toString());
+    updateKeepUnitLabel(settings.keep);
     updateSliderTrackFill();
 
     if (showStatusBarCheckbox) {
@@ -291,8 +313,29 @@ function handleKeepSliderInput(): void {
   const value = parseInt(keepSlider.value, 10);
   keepValue.textContent = value.toString();
   keepSlider.setAttribute('aria-valuenow', value.toString());
+  updateKeepUnitLabel(value);
   updateSliderTrackFill();
   scheduleKeepUpdate(value);
+}
+
+async function handleSliderMarkClick(value: number): Promise<void> {
+  const min = parseInt(keepSlider.min, 10);
+  const max = parseInt(keepSlider.max, 10);
+  const clamped = Math.max(min, Math.min(max, value));
+
+  keepSlider.value = clamped.toString();
+  keepValue.textContent = clamped.toString();
+  keepSlider.setAttribute('aria-valuenow', clamped.toString());
+  updateKeepUnitLabel(clamped);
+  updateSliderTrackFill();
+
+  // Clear pending debounced writes and persist immediately for quick-jump clicks.
+  if (sliderDebounceTimeout !== null) {
+    clearTimeout(sliderDebounceTimeout);
+    sliderDebounceTimeout = null;
+  }
+  pendingKeepValue = null;
+  await updateSettings({ keep: clamped });
 }
 
 /**
@@ -300,6 +343,7 @@ function handleKeepSliderInput(): void {
  */
 async function handleKeepSliderChange(): Promise<void> {
   const value = parseInt(keepSlider.value, 10);
+  updateKeepUnitLabel(value);
 
   // Clear any pending debounced updates
   if (sliderDebounceTimeout !== null) {

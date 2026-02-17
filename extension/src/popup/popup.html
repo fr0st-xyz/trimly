@@ -43,9 +43,9 @@
         <div class="ls-card-content">
           <div class="ls-slider-container">
             <label class="ls-slider-header" for="keepSlider">
-              <span class="ls-slider-label">Keep last</span>
+              <span class="ls-slider-label">Show</span>
               <span class="ls-slider-value" id="keepValue">10</span>
-              <span class="ls-slider-label">messages</span>
+              <span class="ls-slider-label" id="keepUnitLabel">messages</span>
             </label>
             <div class="ls-slider-track-wrapper">
               <input
@@ -62,10 +62,10 @@
               >
               <div class="ls-slider-track-fill" id="sliderTrackFill"></div>
             </div>
-            <div class="ls-slider-labels">
-              <span>1</span>
-              <span>50</span>
-              <span>100</span>
+            <div class="ls-slider-labels" role="group" aria-label="Quick slider values">
+              <button type="button" class="ls-slider-mark is-left" data-value="1">1</button>
+              <button type="button" class="ls-slider-mark is-center" data-value="50">50</button>
+              <button type="button" class="ls-slider-mark is-right" data-value="100">100</button>
             </div>
           </div>
         </div>
