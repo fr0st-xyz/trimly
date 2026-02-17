@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Logger Utility
+ * Trimly - Logger Utility
  * Centralized logging with debug mode control
  */
 

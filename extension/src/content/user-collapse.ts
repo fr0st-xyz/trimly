@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Collapse long user messages (presentation-only)
+ * Trimly - Collapse long user messages (presentation-only)
  *
  * Constraints:
  * - Do not truncate or rewrite message text content (no innerHTML rewriting).

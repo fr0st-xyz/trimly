@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Shared Type Definitions
+ * Trimly - Shared Type Definitions
  * All core interfaces and type definitions used across the extension
  */
 

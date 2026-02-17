@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Page Script Injector
+ * Trimly - Page Script Injector
  *
  * This content script runs at document_start to:
  * 1. Sync settings from browser.storage to localStorage (for page-script access)

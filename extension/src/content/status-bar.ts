@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Status Bar
+ * Trimly - Status Bar
  * Compact floating pill indicator showing trimming statistics
  */
 

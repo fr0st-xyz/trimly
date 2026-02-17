@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Chat view helpers
+ * Trimly - Chat view helpers
  */
 
 const TURN_SELECTORS = [

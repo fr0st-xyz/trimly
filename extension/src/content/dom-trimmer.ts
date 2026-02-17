@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - DOM trim fallback
+ * Trimly- DOM trim fallback
  *
  * Keeps only the last N visible turns in the rendered DOM so settings
  * can apply instantly without reloading the page.

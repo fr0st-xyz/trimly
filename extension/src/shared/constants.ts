@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Constants
+ * Trimly - Constants
  * All magic numbers, timing values, and selector definitions
  */
 
@@ -148,6 +148,5 @@ export const VALIDATION = {
 // External URLs
 // ============================================================================
 
-export const GITHUB_REPO_URL = 'https://github.com/11me/trimly' as const;
-// Replace with your real donation page URL.
-export const DONATION_URL = 'https://buymeacoffee.com/' as const;
+export const GITHUB_REPO_URL = 'https://github.com/fr0st-xyz/trimly' as const;
+export const DONATION_URL = 'https://ko-fi.com/fr0stiwnl' as const;

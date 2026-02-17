@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Page Script (Fetch Proxy)
+ * Trimly - Page Script (Fetch Proxy)
  *
  * This script runs in the page context (not content script isolated world).
  * It patches window.fetch to intercept ChatGPT API responses and trim

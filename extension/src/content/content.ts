@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Content Script
+ * Trimly - Content Script
  *
  * Simplified content script that works with the Fetch Proxy (page-script.ts).
  * Responsibilities:

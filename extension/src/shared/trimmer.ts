@@ -1,5 +1,5 @@
 /**
- * Trimly for ChatGPT - Trimming Logic
+ * Trimly - Trimming Logic
  *
  * Core algorithm for trimming ChatGPT conversation data.
  * Extracted for testability and reuse.
