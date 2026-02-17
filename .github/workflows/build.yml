@@ -41,7 +41,6 @@ jobs:
           name: extension-build
           path: |
             extension/dist/
-            extension/popup/
             extension/assets/icons/
             extension/manifest.json
           retention-days: 7

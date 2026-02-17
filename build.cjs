@@ -107,12 +107,12 @@ function copyManifest() {
 }
 
 /**
- * Copy static files from src to extension folder
+ * Copy static popup files from src to dist output
  */
 function copyStaticFiles() {
   const filesToCopy = [
-    { src: 'extension/src/popup/popup.html', dest: 'extension/popup/popup.html' },
-    { src: 'extension/src/popup/popup.css', dest: 'extension/popup/popup.css' },
+    { src: 'extension/src/popup/popup.html', dest: 'extension/dist/popup.html' },
+    { src: 'extension/src/popup/popup.css', dest: 'extension/dist/popup.css' },
   ];
 
   for (const { src, dest } of filesToCopy) {
@@ -191,7 +191,7 @@ async function build() {
     await esbuild.build({
       ...buildOptions,
       entryPoints: ['extension/src/popup/popup.ts'],
-      outfile: 'extension/popup/popup.js',
+      outfile: 'extension/dist/popup.js',
     });
 
     syncManifestVersions();
@@ -233,7 +233,7 @@ async function watch() {
     esbuild.context({
       ...buildOptions,
       entryPoints: ['extension/src/popup/popup.ts'],
-      outfile: 'extension/popup/popup.js',
+      outfile: 'extension/dist/popup.js',
     }),
   ]);
 

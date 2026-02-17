@@ -58,7 +58,6 @@ jobs:
           zip -r ../trimly-${{ steps.version.outputs.VERSION }}-firefox.zip \
             manifest.json \
             dist/ \
-            popup/ \
             assets/icons/ \
             -x "*.map"
 
@@ -86,7 +85,6 @@ jobs:
           zip -r ../trimly-${{ steps.version.outputs.VERSION }}-chrome.zip \
             manifest.json \
             dist/ \
-            popup/ \
             assets/icons/ \
             -x "*.map"
 

@@ -27,7 +27,7 @@
     "dev:stable": "npm run build:firefox && web-ext run --source-dir=extension --firefox=firefox --start-url='https://chat.openai.com'",
     "package": "npm run build:prod:firefox && web-ext build --source-dir=extension --artifacts-dir=web-ext-artifacts",
     "package:chrome": "npm run build:prod:chrome && cd extension && zip -r ../web-ext-artifacts/trimly-chrome.zip . -x '*.ts' -x 'src/*' -x 'manifest.*.json'",
-    "clean": "rm -rf extension/dist extension/popup/popup.js web-ext-artifacts"
+    "clean": "rm -rf extension/dist web-ext-artifacts"
   },
   "keywords": [
     "firefox",

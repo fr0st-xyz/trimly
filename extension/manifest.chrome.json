@@ -16,7 +16,7 @@
       "32": "assets/icons/outlined/32x32-outlined.png",
       "48": "assets/icons/outlined/48x48-outlined.png"
     },
-    "default_popup": "popup/popup.html"
+    "default_popup": "dist/popup.html"
   },
   "permissions": [
     "storage",
