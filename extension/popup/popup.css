@@ -15,7 +15,7 @@
   --ls-space-4: 16px;
   --ls-space-5: 20px;
   --ls-radius: 12px;
-  --ls-radius-pill: 999px;
+  --ls-radius-pill: 100px;
   --ls-font: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --ls-font-mono: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -65,7 +65,7 @@ body::-webkit-scrollbar-thumb,
 .ls-main::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #4a4a4a, #2f2f2f);
   border: 2px solid #121212;
-  border-radius: 999px;
+  border-radius: 100px;
 }
 
 html::-webkit-scrollbar-thumb:hover,
@@ -208,7 +208,7 @@ body::-webkit-scrollbar-thumb:hover,
 
 .ls-slider::-webkit-slider-runnable-track {
   height: 4px;
-  border-radius: 999px;
+  border-radius: 100px;
   background: #1f1f1f;
 }
 
@@ -225,7 +225,7 @@ body::-webkit-scrollbar-thumb:hover,
 .ls-slider::-moz-range-track {
   height: 4px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 100px;
   background: #1f1f1f;
 }
 
@@ -243,7 +243,7 @@ body::-webkit-scrollbar-thumb:hover,
   top: 50%;
   transform: translateY(-50%);
   height: 4px;
-  border-radius: 999px;
+  border-radius: 100px;
   background: #fff;
   pointer-events: none;
 }

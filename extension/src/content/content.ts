@@ -68,6 +68,7 @@ let emptyChatCheckTimer: number | null = null;
 let emptyChatObserver: MutationObserver | null = null;
 let userCollapse: UserCollapseController | null = null;
 let domTrimmer: DomTrimmerController | null = null;
+let authoritativeTotalRounds: number | null = null;
 
 // ============================================================================
 // Page Script Communication
@@ -118,7 +119,7 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
   }
 
   logDebug('Received trim status:', status);
-  latestTrimStatus = status;
+  authoritativeTotalRounds = status.totalBefore;
 
   // Convert page script status format to status bar format
   updateStatusBar({
@@ -130,18 +131,16 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
 }
 
 function handleDomTrimStatus(status: DomTrimStatus): void {
-  // Keep latest status in the same shape as page-script status
-  latestTrimStatus = {
-    totalBefore: status.totalRounds,
-    keptAfter: status.visibleRounds,
-    removed: status.trimmedRounds,
-    limit: status.keep,
-  };
+  const totalRounds = authoritativeTotalRounds === null
+    ? status.totalRounds
+    : Math.max(authoritativeTotalRounds, status.totalRounds);
+  const visibleRounds = currentSettings?.enabled ? Math.min(totalRounds, Math.max(1, status.keep)) : totalRounds;
+  const trimmedRounds = Math.max(0, totalRounds - visibleRounds);
 
   updateStatusBar({
-    totalMessages: status.totalRounds,
-    visibleMessages: status.visibleRounds,
-    trimmedMessages: status.trimmedRounds,
+    totalMessages: totalRounds,
+    visibleMessages: visibleRounds,
+    trimmedMessages: trimmedRounds,
     keepLastN: status.keep,
   });
 }
@@ -170,9 +169,19 @@ function getDomChatCounts(): ChatCountPayload {
 }
 
 function getChatCounts(): ChatCountPayload {
-  // Count "rounds" as user prompts: one user message + its assistant response = 1.
-  // This matches the popup expectation for conversation message counting.
-  return getDomChatCounts();
+  // Prefer authoritative totals from fetch-trim status (full conversation),
+  // then merge with live DOM counts.
+  const dom = getDomChatCounts();
+  const total = authoritativeTotalRounds === null
+    ? dom.total
+    : Math.max(authoritativeTotalRounds, dom.total);
+  const keep = Math.max(1, currentSettings?.keep ?? dom.visible);
+  const visible = currentSettings?.enabled === false ? total : Math.min(total, keep);
+  return {
+    total,
+    visible,
+    trimmed: Math.max(0, total - visible),
+  };
 }
 
 /**
@@ -211,6 +220,9 @@ function checkProxyStatus(): void {
 function applySettings(settings: LsSettings): void {
   const prevSettings = currentSettings;
   currentSettings = settings;
+  if (!settings.enabled) {
+    authoritativeTotalRounds = null;
+  }
 
   // Update debug mode
   setDebugMode(settings.debug);
@@ -314,7 +326,7 @@ function setupNavigationDetection(): void {
       lastUrl = location.href;
 
       logDebug(`${source} navigation:`, lastUrl);
-      latestTrimStatus = null;
+      authoritativeTotalRounds = null;
       resetAccumulatedTrimmed();
       refreshStatusBar();
 
@@ -368,7 +380,7 @@ function setupNavigationDetection(): void {
 function checkEmptyChatView(): void {
   const isEmpty = isEmptyChatView(document);
   if (isEmpty && !emptyChatState) {
-    latestTrimStatus = null;
+    authoritativeTotalRounds = null;
     resetAccumulatedTrimmed();
     refreshStatusBar();
   }

@@ -26,10 +26,10 @@ export interface LsSettings {
  * Dispatched via CustomEvent to content script for status bar display.
  */
 export interface TrimStatus {
-  totalBefore: number; // Total visible messages before trim
-  keptAfter: number; // Visible messages kept after trim
-  removed: number; // Messages removed (totalBefore - keptAfter)
-  limit: number; // Current keep limit setting
+  totalBefore: number; // Total conversation rounds before trim
+  keptAfter: number; // Rounds kept after trim
+  removed: number; // Rounds removed (totalBefore - keptAfter)
+  limit: number; // Current keep limit (rounds)
 }
 
 // ============================================================================

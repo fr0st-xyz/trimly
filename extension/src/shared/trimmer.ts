@@ -39,6 +39,8 @@ export interface TrimResult {
   totalCount: number;
   visibleKept: number;
   visibleTotal: number;
+  roundKept: number;
+  roundTotal: number;
 }
 
 // ============================================================================
@@ -211,6 +213,14 @@ export function trimMapping(
   }
 
   const visibleKept = kept.length;
+  const roundTotal = userIndices.length > 0 ? userIndices.length : visibleTotal;
+  const roundKept =
+    userIndices.length > 0
+      ? kept.reduce((count, id) => {
+          const node = mapping[id];
+          return count + (node && isUserMessage(node) ? 1 : 0);
+        }, 0)
+      : visibleKept;
 
   // Use original root if available, otherwise first kept node
   const newRoot = hasOriginalRoot ? originalRootId : kept[0];
@@ -229,5 +239,7 @@ export function trimMapping(
     totalCount,
     visibleKept,
     visibleTotal,
+    roundKept,
+    roundTotal,
   };
 }

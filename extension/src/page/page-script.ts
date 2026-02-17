@@ -327,13 +327,13 @@ async function interceptedFetch(
       return res;
     }
 
-    // Calculate statistics (based on visible messages for user-friendly display)
-    const totalBefore = trimmed.visibleTotal;
-    const keptAfter = trimmed.visibleKept;
+    // Calculate statistics as conversation rounds (user prompts).
+    const totalBefore = trimmed.roundTotal;
+    const keptAfter = trimmed.roundKept;
     const removed = Math.max(0, totalBefore - keptAfter);
 
     log(
-      `Trimmed: ${keptAfter}/${totalBefore} nodes (limit: ${cfg.limit}), visible: ${trimmed.visibleKept}/${trimmed.visibleTotal}`
+      `Trimmed rounds: ${keptAfter}/${totalBefore} (limit: ${cfg.limit})`
     );
 
     // Dispatch status to content script
