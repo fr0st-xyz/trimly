@@ -1,5 +1,5 @@
 /**
- * LightSession Pro - Storage Utility
+ * Trimly Pro - Storage Utility
  * Settings persistence and validation
  */
 

@@ -1,12 +1,14 @@
 /**
- * LightSession for ChatGPT - Status Bar
+ * Trimly for ChatGPT - Status Bar
  * Compact floating pill indicator showing trimming statistics
  */
 
 import { TIMING } from '../shared/constants';
+import browser from '../shared/browser-polyfill';
 
-const STATUS_BAR_ID = 'lightsession-status-bar';
-const WAITING_TEXT = 'LightSession · waiting for messages…';
+const STATUS_BAR_ID = 'trimly-status-bar';
+const STATUS_BAR_STYLE_ID = 'trimly-status-style';
+const STATUS_LOGO_URL = browser.runtime.getURL('assets/icons/128x128.png');
 
 export interface StatusBarStats {
   totalMessages: number;
@@ -16,6 +18,63 @@ export interface StatusBarStats {
 }
 
 type StatusBarState = 'active' | 'waiting' | 'all-visible' | 'unrecognized';
+type StyleMap = Record<string, string>;
+
+// ----------------------------------------------------------------------------
+// Style tokens for quick tuning.
+// Edit these values instead of hunting through functions.
+// ----------------------------------------------------------------------------
+const BAR_BASE_STYLE: StyleMap = {
+  position: 'fixed',
+  bottom: '20px',
+  right: '24px',
+  zIndex: '10000',
+  padding: '7px 12px',
+  fontSize: '11px',
+  fontFamily: '"Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  fontWeight: '500',
+  color: '#ffffff',
+  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  border: '1px solid rgba(255, 255, 255, 0.18)',
+  borderRadius: '20px',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+  backdropFilter: 'blur(4px)',
+  maxWidth: '60%',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  pointerEvents: 'none',
+  transition: 'opacity 0.2s ease',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '5px',
+};
+
+const BAR_STATE_BASE_STYLE: StyleMap = {
+  opacity: '1',
+  color: '#ffffff',
+  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  borderColor: 'rgba(255, 255, 255, 0.18)',
+  padding: '7px 12px',
+};
+
+const BAR_STATE_STYLE: Record<StatusBarState, StyleMap> = {
+  active: {
+    color: '#ffffff',
+    backgroundColor: 'rgba(10, 10, 10, 0.95)',
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+  },
+  waiting: {
+    color: '#a3a3a3',
+    padding: '4px 8px',
+  },
+  'all-visible': {},
+  unrecognized: {
+    color: '#e5e5e5',
+    backgroundColor: 'rgba(28, 28, 28, 0.95)',
+    borderColor: 'rgba(255, 255, 255, 0.24)',
+  },
+};
 
 let currentStats: StatusBarStats | null = null;
 let isVisible = true;
@@ -24,6 +83,12 @@ let isVisible = true;
 let lastUpdateTime = 0;
 let pendingStats: StatusBarStats | null = null;
 let pendingUpdateTimer: number | null = null;
+
+function applyStyles(el: HTMLElement, styles: StyleMap): void {
+  for (const [property, value] of Object.entries(styles)) {
+    el.style.setProperty(property.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`), value);
+  }
+}
 
 /**
  * Get or create the status bar element
@@ -40,6 +105,7 @@ function getOrCreateStatusBar(): HTMLElement | null {
   bar.setAttribute('aria-live', 'polite');
 
   applyStatusBarStyles(bar);
+  ensureStatusBarStyles();
 
   document.body.appendChild(bar);
 
@@ -50,28 +116,29 @@ function getOrCreateStatusBar(): HTMLElement | null {
  * Apply inline styles to the status bar (compact pill, bottom-right)
  */
 function applyStatusBarStyles(bar: HTMLElement): void {
-  Object.assign(bar.style, {
-    position: 'fixed',
-    bottom: '50px',
-    right: '24px',
-    zIndex: '10000',
-    padding: '4px 10px',
-    fontSize: '11px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    fontWeight: '500',
-    color: '#e5e7eb',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    border: '1px solid rgba(55, 65, 81, 0.9)',
-    borderRadius: '9999px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-    backdropFilter: 'blur(4px)',
-    maxWidth: '60%',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    pointerEvents: 'none',
-    transition: 'opacity 0.2s ease',
-  });
+  applyStyles(bar, BAR_BASE_STYLE);
+}
+
+function ensureStatusBarStyles(): void {
+  if (document.getElementById(STATUS_BAR_STYLE_ID)) {
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = STATUS_BAR_STYLE_ID;
+  style.textContent = `
+    .ls-status-logo {
+      width: 28px;
+      height: 28px;
+      display: block;
+      flex-shrink: 0;
+      border-radius: 3px;
+      object-fit: contain;
+      image-rendering: auto;
+      transform: translateZ(0);
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 /**
@@ -80,59 +147,45 @@ function applyStatusBarStyles(bar: HTMLElement): void {
 function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarState } {
   if (stats.trimmedMessages > 0) {
     return {
-      text: `LightSession · last ${stats.keepLastN} · ${stats.trimmedMessages} trimmed`,
+      text: `Messages · last ${stats.keepLastN} · ${stats.trimmedMessages} trimmed`,
       state: 'active',
     };
   }
 
   if (stats.totalMessages === 0) {
     return {
-      text: 'LightSession · waiting for messages…',
+      text: '',
       state: 'waiting',
     };
   }
 
   if (stats.totalMessages <= stats.keepLastN) {
     return {
-      text: `LightSession · all ${stats.totalMessages} visible`,
+      text: `Messages · all ${stats.totalMessages} visible`,
       state: 'all-visible',
     };
   }
 
   return {
-    text: `LightSession · ${stats.visibleMessages} visible`,
+    text: `Messages · ${stats.visibleMessages} visible`,
     state: 'active',
   };
+}
+
+function setBarText(bar: HTMLElement, text: string, state: StatusBarState): void {
+  if (state === 'waiting') {
+    bar.innerHTML = `<img class="ls-status-logo" src="${STATUS_LOGO_URL}" alt="" aria-hidden="true">`;
+    return;
+  }
+  bar.textContent = text;
 }
 
 /**
  * Apply state-specific styling
  */
 function applyStateStyles(bar: HTMLElement, state: StatusBarState): void {
-  // Reset to default
-  bar.style.opacity = '1';
-  bar.style.color = '#e5e7eb';
-  bar.style.backgroundColor = 'rgba(15, 23, 42, 0.9)';
-  bar.style.borderColor = 'rgba(55, 65, 81, 0.9)';
-
-  switch (state) {
-    case 'active':
-      bar.style.color = '#6ee7b7';
-      bar.style.backgroundColor = 'rgba(6, 78, 59, 0.9)';
-      bar.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-      break;
-    case 'waiting':
-      bar.style.color = '#9ca3af';
-      break;
-    case 'all-visible':
-      // Keep neutral styling
-      break;
-    case 'unrecognized':
-      bar.style.color = '#fcd34d';
-      bar.style.backgroundColor = 'rgba(120, 53, 15, 0.9)';
-      bar.style.borderColor = 'rgba(217, 119, 6, 0.5)';
-      break;
-  }
+  applyStyles(bar, BAR_STATE_BASE_STYLE);
+  applyStyles(bar, BAR_STATE_STYLE[state]);
 }
 
 /**
@@ -158,13 +211,13 @@ function renderStatusBar(displayStats: StatusBarStats): void {
   }
 
   const { text, state } = getStatusText(displayStats);
-  bar.textContent = text;
+  setBarText(bar, text, state);
   applyStateStyles(bar, state);
   lastUpdateTime = performance.now();
 }
 
 function renderWaitingStatusBar(bar: HTMLElement): void {
-  bar.textContent = WAITING_TEXT;
+  setBarText(bar, '', 'waiting');
   applyStateStyles(bar, 'waiting');
   lastUpdateTime = performance.now();
 }
@@ -229,7 +282,7 @@ export function showLayoutNotRecognized(): void {
     return;
   }
 
-  bar.textContent = 'LightSession · layout not recognized';
+  bar.textContent = 'Messages · layout not recognized';
   applyStateStyles(bar, 'unrecognized');
 }
 
@@ -247,7 +300,7 @@ export function showStatusBar(): void {
 
   if (currentStats) {
     const { text, state } = getStatusText(currentStats);
-    bar.textContent = text;
+    setBarText(bar, text, state);
     applyStateStyles(bar, state);
     lastUpdateTime = performance.now();
     return;

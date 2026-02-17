@@ -3,10 +3,10 @@
  *
  * The content script can observe `window` errors/rejections originating from the page.
  * Calling `preventDefault()` on these events suppresses the browser's default reporting,
- * so we must only suppress errors that are clearly caused by LightSession itself.
+ * so we must only suppress errors that are clearly caused by Trimly itself.
  */
 
-export function isLightSessionRejection(
+export function isTrimlyRejection(
   reason: unknown,
   extensionUrlPrefix?: string,
 ): boolean {
@@ -43,7 +43,7 @@ export function isLightSessionRejection(
   if (haystack.includes('LS:')) return true;
 
   // Useful in dev builds / source maps.
-  if (haystack.includes('light-session')) return true;
+  if (haystack.includes('trimly')) return true;
 
   return false;
 }

@@ -1,5 +1,5 @@
 /**
- * LightSession Pro - Message Protocol
+ * Trimly Pro - Message Protocol
  * Runtime communication between background, content, and popup scripts
  */
 

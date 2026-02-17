@@ -1,6 +1,6 @@
-# Contributing to LightSession
+# Contributing to Trimly
 
-Thank you for your interest in contributing to LightSession! This Firefox extension helps keep ChatGPT fast by optimizing DOM performance.
+Thank you for your interest in contributing to Trimly! This Firefox extension helps keep ChatGPT fast by optimizing DOM performance.
 
 ## Getting Started
 
@@ -13,8 +13,8 @@ Thank you for your interest in contributing to LightSession! This Firefox extens
 
 ```bash
 # Clone the repository
-git clone https://github.com/11me/light-session.git
-cd light-session
+git clone https://github.com/11me/trimly.git
+cd trimly
 
 # Install dependencies
 npm install
@@ -29,7 +29,7 @@ For detailed architecture and development guide, see [docs/development.md](docs/
 
 ### Reporting Bugs
 
-1. Check [existing issues](https://github.com/11me/light-session/issues) first
+1. Check [existing issues](https://github.com/11me/trimly/issues) first
 2. Create a new issue with:
    - Firefox version
    - Extension version
@@ -74,7 +74,7 @@ Open an issue with the `enhancement` label describing:
 ## Project Structure
 
 ```
-light-session/
+trimly/
 ├── extension/src/     # TypeScript source code
 │   ├── content/       # Content script (DOM trimming logic)
 │   ├── popup/         # Extension popup UI

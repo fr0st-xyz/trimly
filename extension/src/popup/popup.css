@@ -1,218 +1,25 @@
-/**
- * LightSession Popup Styles v2.0
- * Modern, premium design with card-based layout
- */
-
-/* ============================================
-   CSS Custom Properties (Design Tokens)
-   ============================================ */
 :root {
-  color-scheme: light;
-
-  /* Primary Brand Colors */
-  --ls-primary-50: #ecfdf5;
-  --ls-primary-100: #d1fae5;
-  --ls-primary-200: #a7f3d0;
-  --ls-primary-300: #6ee7b7;
-  --ls-primary-400: #34d399;
-  --ls-primary-500: #10b981;
-  --ls-primary-600: #059669;
-  --ls-primary-700: #047857;
-  --ls-primary-800: #065f46;
-  --ls-primary-900: #064e3b;
-
-  /* Neutral Colors */
-  --ls-gray-50: #f8fafc;
-  --ls-gray-100: #f1f5f9;
-  --ls-gray-200: #e2e8f0;
-  --ls-gray-300: #cbd5e1;
-  --ls-gray-400: #94a3b8;
-  --ls-gray-500: #64748b;
-  --ls-gray-600: #475569;
-  --ls-gray-700: #334155;
-  --ls-gray-800: #1e293b;
-  --ls-gray-900: #0f172a;
-
-  /* Semantic Colors */
-  --ls-success: #22c55e;
-  --ls-warning: #f59e0b;
-  --ls-warning-bg: #fef3c7;
-  --ls-warning-text: #92400e;
-  --ls-error: #ef4444;
-  --ls-error-bg: #fef2f2;
-
-  /* Support/Accent Colors (Pink) */
-  --ls-pink-500: #ec4899;
-  --ls-pink-50: #fdf2f8;
-  --ls-pink-100: #fce7f3;
-  --ls-pink-border: #fbcfe8;
-
-  /* Surface Colors */
-  --ls-surface-primary: #ffffff;
-  --ls-surface-secondary: var(--ls-gray-50);
-
-  /* Shadows */
-  --ls-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --ls-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --ls-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --ls-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
-  --ls-shadow-glow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-
-  /* Spacing */
+  color-scheme: dark;
+  --ls-bg: #000;
+  --ls-surface: #0a0a0a;
+  --ls-surface-2: #111;
+  --ls-border: #242424;
+  --ls-border-strong: #3a3a3a;
+  --ls-text: #fff;
+  --ls-text-muted: #a1a1a1;
+  --ls-text-dim: #737373;
+  --ls-focus: #fff;
   --ls-space-1: 4px;
   --ls-space-2: 8px;
   --ls-space-3: 12px;
   --ls-space-4: 16px;
   --ls-space-5: 20px;
-  --ls-space-6: 24px;
-  --ls-space-8: 32px;
-
-  /* Border Radius */
-  --ls-radius-sm: 6px;
-  --ls-radius-md: 10px;
-  --ls-radius-lg: 14px;
-  --ls-radius-xl: 18px;
-  --ls-radius-full: 9999px;
-
-  /* Typography */
-  --ls-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-  --ls-font-size-xs: 11px;
-  --ls-font-size-sm: 12px;
-  --ls-font-size-base: 14px;
-  --ls-font-size-lg: 16px;
-  --ls-font-size-xl: 18px;
-  --ls-line-height: 1.5;
-
-  /* Transitions */
-  --ls-transition-fast: 150ms ease;
-  --ls-transition-base: 200ms ease;
-  --ls-transition-slow: 300ms ease;
-  --ls-transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ls-radius: 12px;
+  --ls-radius-pill: 999px;
+  --ls-font: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ls-font-mono: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* ============================================
-   Auto Dark Mode
-   - Follows OS/browser setting via prefers-color-scheme
-   - Override tokens so existing component styles adapt automatically
-   ============================================ */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-
-    /* Brand green: a bit darker/less neon in dark mode */
-    --ls-primary-400: #2fbf8f;
-    --ls-primary-500: #059669;
-    --ls-primary-600: #047857;
-    --ls-primary-700: #065f46;
-
-    /*
-     * Dark surfaces:
-     * - Keep it mostly neutral (less "navy") so brand green reads premium.
-     * - Use a slightly lighter card surface for depth.
-     */
-    --ls-gray-50: #070a13;  /* app background */
-    --ls-gray-100: #0b1220; /* content background */
-    --ls-gray-200: #111a2e; /* tracks / subtle fills */
-    --ls-gray-300: #233252; /* borders */
-
-    /* Text ladder (raise contrast vs the first pass) */
-    --ls-gray-400: #64748b; /* tertiary */
-    --ls-gray-500: #94a3b8; /* secondary */
-    --ls-gray-600: #cbd5e1; /* titles */
-    --ls-gray-700: #e2e8f0; /* primary */
-    --ls-gray-800: #f1f5f9;
-    --ls-gray-900: #ffffff;
-
-    --ls-surface-primary: #0f172a; /* cards / main surface */
-    --ls-surface-secondary: #0b1220;
-
-    /* Dark-appropriate elevation (combine shadow + hairline border) */
-    --ls-shadow-xs: 0 1px 0 rgba(255, 255, 255, 0.03);
-    --ls-shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --ls-shadow-md: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --ls-shadow-lg: 0 22px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --ls-shadow-glow: 0 0 0 3px rgba(16, 185, 129, 0.18);
-
-    /* Semantic backgrounds tuned for dark surfaces */
-    --ls-warning-bg: rgba(245, 158, 11, 0.14);
-    --ls-warning-text: #fbbf24;
-    --ls-error-bg: rgba(239, 68, 68, 0.14);
-
-    /* Support accents tuned for dark surfaces */
-    --ls-pink-50: rgba(236, 72, 153, 0.1);
-    --ls-pink-100: rgba(236, 72, 153, 0.16);
-    --ls-pink-border: rgba(236, 72, 153, 0.35);
-  }
-
-  body {
-    background: var(--ls-gray-50);
-    color: var(--ls-gray-700);
-  }
-
-  /* Atmosphere: subtle ambient gradients for a less "flat" dark UI */
-  .ls-popup {
-    background:
-      radial-gradient(900px circle at 10% 0%, rgba(16, 185, 129, 0.12), transparent 40%),
-      radial-gradient(700px circle at 95% 10%, rgba(236, 72, 153, 0.10), transparent 44%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 40%),
-      var(--ls-gray-50);
-  }
-
-  .ls-main {
-    /* Let the ambient popup background show through */
-    background: transparent;
-  }
-
-  /* Give cards depth on dark without looking "glossy" */
-  .ls-card {
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    box-shadow: var(--ls-shadow-sm);
-    backdrop-filter: blur(10px);
-    background: rgba(15, 23, 42, 0.72);
-  }
-
-  /* Tone down the header in dark mode (less bright, more refined) */
-  .ls-header {
-    background:
-      linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(16, 185, 129, 0.08) 100%),
-      linear-gradient(135deg, #0b1220 0%, #0f172a 100%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .ls-header-accent {
-    /* Avoid the bright mint stripe in dark mode; use a subtle neutral divider. */
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.12) 50%,
-      transparent 100%
-    );
-    opacity: 1;
-  }
-
-  .ls-card-header {
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom-color: rgba(148, 163, 184, 0.12);
-  }
-
-  .ls-footer {
-    border-top-color: rgba(148, 163, 184, 0.12);
-  }
-
-  .ls-status:not(:empty) {
-    background: rgba(16, 185, 129, 0.12);
-    color: #bbf7d0;
-  }
-
-  .ls-checkbox-row:hover {
-    background: rgba(148, 163, 184, 0.06);
-  }
-}
-
-/* ============================================
-   Base Reset & Body
-   ============================================ */
 *,
 *::before,
 *::after {
@@ -223,643 +30,412 @@
 
 body {
   width: 360px;
-  font-family: var(--ls-font-sans);
-  font-size: var(--ls-font-size-base);
-  line-height: var(--ls-line-height);
-  color: var(--ls-gray-700);
-  background: var(--ls-gray-100);
+  background: var(--ls-bg);
+  color: var(--ls-text);
+  font: 500 14px/1.45 var(--ls-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ============================================
-   Popup Container
-   ============================================ */
+html,
+body,
+.ls-popup,
+.ls-main {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a #121212;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.ls-popup::-webkit-scrollbar,
+.ls-main::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.ls-popup::-webkit-scrollbar-track,
+.ls-main::-webkit-scrollbar-track {
+  background: #121212;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.ls-popup::-webkit-scrollbar-thumb,
+.ls-main::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4a4a4a, #2f2f2f);
+  border: 2px solid #121212;
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.ls-popup::-webkit-scrollbar-thumb:hover,
+.ls-main::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #686868, #3e3e3e);
+}
+
 .ls-popup {
-  background: var(--ls-surface-primary);
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  background:
+    radial-gradient(900px circle at 0% 0%, rgba(255, 255, 255, 0.08), transparent 40%),
+    var(--ls-bg);
 }
 
-/* ============================================
-   Header
-   ============================================ */
 .ls-header {
-  position: relative;
-  background: linear-gradient(135deg, var(--ls-primary-600) 0%, var(--ls-primary-500) 100%);
-  color: white;
-  padding: var(--ls-space-4) var(--ls-space-4) var(--ls-space-5);
+  padding: var(--ls-space-4);
+  border-bottom: 1px solid var(--ls-border);
+  background: rgba(255, 255, 255, 0.01);
 }
 
 .ls-header-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-}
-
-.ls-header-accent {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--ls-primary-300) 0%,
-    var(--ls-primary-200) 50%,
-    var(--ls-primary-300) 100%
-  );
-  opacity: 0.6;
-}
-
-.ls-logo {
-  display: flex;
-  flex-direction: column;
+  gap: var(--ls-space-3);
 }
 
 .ls-logo h1 {
-  font-size: var(--ls-font-size-xl);
+  font-size: 15px;
+  line-height: 1.2;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-bottom: 2px;
+  letter-spacing: -0.01em;
+}
+
+.ls-logo-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ls-logo-icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+  border-radius: 4px;
 }
 
 .ls-subtitle {
-  font-size: var(--ls-font-size-xs);
-  color: var(--ls-primary-200);
+  margin-top: var(--ls-space-1);
+  font-size: 12px;
   font-weight: 400;
+  color: var(--ls-text-muted);
 }
 
-/* ============================================
-   Master Toggle (Header)
-   ============================================ */
-.ls-master-toggle {
-  position: relative;
+.ls-chat-counts {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ls-text-dim);
 }
 
-.ls-toggle-input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
+.ls-header-accent {
+  margin-top: var(--ls-space-3);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ls-border-strong), transparent);
 }
 
-.ls-toggle-track {
-  display: block;
-  width: 52px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: var(--ls-radius-full);
-  cursor: pointer;
-  position: relative;
-  transition: background-color var(--ls-transition-base);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.ls-toggle-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  box-shadow: var(--ls-shadow-md);
-  transition: transform var(--ls-transition-spring);
-}
-
-.ls-toggle-input:checked + .ls-toggle-track {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.ls-toggle-input:checked + .ls-toggle-track .ls-toggle-thumb {
-  transform: translateX(24px);
-}
-
-.ls-toggle-input:focus-visible + .ls-toggle-track {
-  outline: 2px solid var(--ls-primary-500);
-  outline-offset: 2px;
-}
-
-/* Toggle state indicators */
-.ls-toggle-track::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
-  opacity: 1;
-  transition: opacity var(--ls-transition-fast);
-}
-
-.ls-toggle-input:checked + .ls-toggle-track::after {
-  opacity: 0;
-}
-
-.ls-toggle-track::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 10px;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 6px;
-  background: var(--ls-primary-300);
-  border-radius: 50%;
-  opacity: 0;
-  transition: opacity var(--ls-transition-fast);
-}
-
-.ls-toggle-input:checked + .ls-toggle-track::before {
-  opacity: 1;
-}
-
-/* ============================================
-   Main Content
-   ============================================ */
 .ls-main {
-  flex: 1;
-  padding: var(--ls-space-4);
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: var(--ls-space-3);
-  background: var(--ls-gray-50);
-}
-
-/* ============================================
-   Cards
-   ============================================ */
-.ls-card {
-  background: var(--ls-surface-primary);
-  border-radius: var(--ls-radius-lg);
-  box-shadow: var(--ls-shadow-sm);
-  overflow: hidden;
-  transition: box-shadow var(--ls-transition-base), opacity var(--ls-transition-base);
-}
-
-.ls-card-header {
-  display: flex;
-  align-items: center;
-  gap: var(--ls-space-2);
-  padding: var(--ls-space-3) var(--ls-space-4);
-  background: var(--ls-gray-50);
-  border-bottom: 1px solid var(--ls-gray-100);
-}
-
-.ls-card-title {
-  font-size: var(--ls-font-size-sm);
-  font-weight: 600;
-  color: var(--ls-gray-600);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.ls-card-content {
   padding: var(--ls-space-4);
 }
 
-/* Disabled state for cards */
+.ls-card {
+  border: 1px solid var(--ls-border);
+  border-radius: var(--ls-radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  overflow: hidden;
+}
+
 .ls-card.disabled {
   opacity: 0.5;
   pointer-events: none;
 }
 
-/* Debug card styling */
-.ls-card-debug {
-  border: 1px dashed var(--ls-gray-300);
-  background: var(--ls-gray-50);
+.ls-card-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ls-border);
+  background: var(--ls-surface);
 }
 
-.ls-card-debug .ls-card-header {
-  background: transparent;
+.ls-card-title {
+  color: var(--ls-text-muted);
+  font-size: 13px;
+  font-weight: 500;
 }
 
-/* ============================================
-   Slider Component
-   ============================================ */
-.ls-slider-container {
-  width: 100%;
+.ls-card-content {
+  padding: var(--ls-space-3);
 }
 
 .ls-slider-header {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: var(--ls-space-1);
-  cursor: pointer;
-  margin-bottom: var(--ls-space-3);
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .ls-slider-label {
-  font-size: var(--ls-font-size-sm);
-  color: var(--ls-gray-500);
+  color: var(--ls-text-muted);
+  font-weight: 500;
 }
 
 .ls-slider-value {
-  font-size: var(--ls-font-size-xl);
-  font-weight: 700;
-  color: var(--ls-primary-600);
-  min-width: 36px;
+  min-width: 32px;
+  padding: 2px 8px;
+  border: 1px solid var(--ls-border-strong);
+  border-radius: var(--ls-radius-pill);
   text-align: center;
-  transition: color var(--ls-transition-fast), transform var(--ls-transition-fast);
-}
-
-.ls-slider-value.is-dragging {
-  transform: scale(1.1);
-  color: var(--ls-primary-500);
+  font-weight: 600;
+  color: var(--ls-text);
+  background: var(--ls-surface);
+  font-family: var(--ls-font-mono);
 }
 
 .ls-slider-track-wrapper {
   position: relative;
-  height: 22px;
-  margin-bottom: var(--ls-space-2);
-  display: flex;
-  align-items: center;
 }
 
 .ls-slider {
   width: 100%;
-  height: 8px;
-  border-radius: var(--ls-radius-full);
-  background: var(--ls-gray-200);
-  outline: none;
-  cursor: pointer;
-  -webkit-appearance: none;
   appearance: none;
-  position: relative;
-  z-index: 2;
-  margin: 0;
+  height: 22px;
+  background: transparent;
+}
+
+.ls-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: #1f1f1f;
 }
 
 .ls-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0;
   border-radius: 50%;
-  background: var(--ls-primary-500);
-  cursor: grab;
-  box-shadow: var(--ls-shadow-md), 0 0 0 4px rgba(16, 185, 129, 0.1);
-  border: 3px solid var(--ls-surface-primary);
-  transition: box-shadow var(--ls-transition-base);
+  background: #fff;
 }
 
-.ls-slider::-webkit-slider-thumb:hover {
-  box-shadow: var(--ls-shadow-lg), 0 0 0 5px rgba(16, 185, 129, 0.15);
-}
-
-.ls-slider::-webkit-slider-thumb:active {
-  cursor: grabbing;
-  box-shadow: var(--ls-shadow-md), 0 0 0 6px rgba(16, 185, 129, 0.2);
+.ls-slider::-moz-range-track {
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: #1f1f1f;
 }
 
 .ls-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
+  border: 0;
   border-radius: 50%;
-  background: var(--ls-primary-500);
-  cursor: grab;
-  box-shadow: var(--ls-shadow-md), 0 0 0 4px rgba(16, 185, 129, 0.1);
-  border: 3px solid var(--ls-surface-primary);
-  transition: box-shadow var(--ls-transition-base);
+  background: #fff;
 }
 
-.ls-slider::-moz-range-thumb:hover {
-  box-shadow: var(--ls-shadow-lg), 0 0 0 5px rgba(16, 185, 129, 0.15);
-}
-
-.ls-slider::-moz-range-thumb:active {
-  cursor: grabbing;
-  box-shadow: var(--ls-shadow-md), 0 0 0 6px rgba(16, 185, 129, 0.2);
-}
-
-.ls-slider:focus {
-  outline: none;
-}
-
-.ls-slider:focus-visible {
-  outline: 2px solid var(--ls-primary-500);
-  outline-offset: 4px;
-  border-radius: var(--ls-radius-full);
-}
-
-.ls-slider:focus::-webkit-slider-thumb {
-  box-shadow: var(--ls-shadow-md), var(--ls-shadow-glow);
-}
-
-/* Track fill (colored portion) */
 .ls-slider-track-fill {
   position: absolute;
-  top: 50%;
   left: 0;
-  height: 8px;
+  top: 50%;
   transform: translateY(-50%);
-  background: linear-gradient(90deg, var(--ls-primary-400), var(--ls-primary-500));
-  border-radius: var(--ls-radius-full) 0 0 var(--ls-radius-full);
+  height: 4px;
+  border-radius: 999px;
+  background: #fff;
   pointer-events: none;
-  z-index: 1;
 }
 
 .ls-slider-labels {
+  margin-top: 8px;
   display: flex;
   justify-content: space-between;
-  font-size: var(--ls-font-size-xs);
-  color: var(--ls-gray-400);
+  color: var(--ls-text-dim);
+  font-size: 11px;
+  font-weight: 500;
 }
 
-/* ============================================
-   Checkbox Component
-   ============================================ */
 .ls-checkbox-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--ls-space-3);
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
   cursor: pointer;
-  padding: var(--ls-space-2);
-  margin: 0 calc(-1 * var(--ls-space-2));
-  border-radius: var(--ls-radius-sm);
-  transition: background-color var(--ls-transition-fast);
-}
-
-.ls-checkbox-row:hover {
-  background: var(--ls-gray-50);
 }
 
 .ls-checkbox-row + .ls-checkbox-row {
-  margin-top: var(--ls-space-1);
+  margin-top: 4px;
+}
+
+.ls-checkbox-row:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .ls-checkbox-wrapper {
   position: relative;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .ls-checkbox-input {
   position: absolute;
   opacity: 0;
-  width: 0;
-  height: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
 }
 
 .ls-checkbox-box {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--ls-gray-300);
-  border-radius: var(--ls-radius-sm);
-  background: var(--ls-surface-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background-color var(--ls-transition-fast),
-    border-color var(--ls-transition-fast),
-    transform var(--ls-transition-spring);
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--ls-border-strong);
+  border-radius: 4px;
+  background: var(--ls-surface);
+  color: #000;
+  display: grid;
+  place-items: center;
 }
 
 .ls-checkbox-check {
-  width: 12px;
-  height: 12px;
-  color: white;
+  width: 11px;
+  height: 11px;
   opacity: 0;
-  transform: scale(0.5);
-  transition:
-    opacity var(--ls-transition-fast),
-    transform var(--ls-transition-spring);
 }
 
 .ls-checkbox-input:checked + .ls-checkbox-box {
-  background: var(--ls-primary-500);
-  border-color: var(--ls-primary-500);
+  background: #fff;
+  border-color: #fff;
 }
 
 .ls-checkbox-input:checked + .ls-checkbox-box .ls-checkbox-check {
   opacity: 1;
-  transform: scale(1);
-}
-
-.ls-checkbox-input:focus + .ls-checkbox-box {
-  box-shadow: var(--ls-shadow-glow);
-}
-
-.ls-checkbox-row:hover .ls-checkbox-box {
-  border-color: var(--ls-primary-400);
-}
-
-.ls-checkbox-row:active .ls-checkbox-box {
-  transform: scale(0.95);
 }
 
 .ls-checkbox-label-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
 }
 
 .ls-checkbox-label {
-  font-size: var(--ls-font-size-base);
+  font-size: 13px;
   font-weight: 500;
-  color: var(--ls-gray-700);
-  display: flex;
-  align-items: center;
-  gap: var(--ls-space-2);
+  color: var(--ls-text);
 }
 
 .ls-checkbox-description {
-  font-size: var(--ls-font-size-xs);
-  color: var(--ls-gray-500);
-  line-height: 1.4;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ls-text-dim);
 }
 
-/* ============================================
-   Badge Component
-   ============================================ */
-.ls-badge {
+.ls-master-toggle {
+  margin-top: 1px;
+}
+
+.ls-toggle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ls-toggle-track {
+  width: 42px;
+  height: 24px;
+  border-radius: var(--ls-radius-pill);
+  border: 1px solid var(--ls-border-strong);
+  background: var(--ls-surface-2);
   display: inline-flex;
   align-items: center;
-  font-size: 9px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--ls-radius-full);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  padding: 2px;
+  cursor: pointer;
 }
 
-.ls-badge-warning {
-  color: var(--ls-warning-text);
-  background: var(--ls-warning-bg);
+.ls-toggle-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6f6f6f;
+  transition: transform 160ms ease, background-color 160ms ease;
 }
 
-.ls-badge-success {
-  color: var(--ls-primary-800);
-  background: var(--ls-primary-100);
+.ls-toggle-input:checked + .ls-toggle-track {
+  background: #fff;
+  border-color: #fff;
 }
 
-/* ============================================
-   Button Component
-   ============================================ */
-.ls-button {
+.ls-toggle-input:checked + .ls-toggle-track .ls-toggle-thumb {
+  transform: translateX(18px);
+  background: #000;
+}
+
+.ls-footer {
+  margin-top: auto;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--ls-border);
+  display: grid;
+  gap: 8px;
+}
+
+.ls-footer-links {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--ls-space-2);
-  width: 100%;
-  padding: var(--ls-space-3) var(--ls-space-4);
-  font-family: inherit;
-  font-size: var(--ls-font-size-base);
-  font-weight: 500;
-  border: none;
-  border-radius: var(--ls-radius-md);
+  gap: 10px;
+}
+
+.ls-icon-link {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--ls-border-strong);
+  border-radius: 10px;
+  background: var(--ls-surface-2);
+  color: var(--ls-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition:
-    background-color var(--ls-transition-fast),
-    transform var(--ls-transition-fast),
-    box-shadow var(--ls-transition-fast);
+  transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
 
-.ls-button:active {
-  transform: scale(0.98);
+.ls-icon-link svg {
+  width: 16px;
+  height: 16px;
 }
 
-.ls-button:focus {
-  outline: none;
-  box-shadow: var(--ls-shadow-glow);
+.ls-icon-link:hover {
+  border-color: #fff;
+  background: #171717;
 }
 
-/* Primary button */
-.ls-button-primary {
-  color: white;
-  background: linear-gradient(135deg, var(--ls-primary-500) 0%, var(--ls-primary-600) 100%);
-  box-shadow: var(--ls-shadow-sm);
-}
-
-.ls-button-primary:hover {
-  background: linear-gradient(135deg, var(--ls-primary-600) 0%, var(--ls-primary-700) 100%);
-  box-shadow: var(--ls-shadow-md);
-}
-
-/* ============================================
-   Footer
-   ============================================ */
-.ls-footer {
-  padding: var(--ls-space-3) var(--ls-space-4);
-  background: var(--ls-surface-primary);
-  border-top: 1px solid var(--ls-gray-100);
-  display: flex;
-  flex-direction: column;
-  gap: var(--ls-space-2);
+.ls-icon-link:active {
+  transform: translateY(1px);
 }
 
 .ls-status {
-  font-size: var(--ls-font-size-sm);
-  text-align: center;
-  min-height: 20px;
-  padding: var(--ls-space-2);
-  border-radius: var(--ls-radius-sm);
-  transition:
-    background-color var(--ls-transition-fast),
-    color var(--ls-transition-fast);
-}
-
-.ls-status:empty {
-  display: none;
-}
-
-.ls-status:not(:empty) {
-  color: var(--ls-primary-600);
-  background: var(--ls-primary-50);
-  animation: fadeIn var(--ls-transition-base) ease-out;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--ls-text-muted);
 }
 
 .ls-status.error {
-  color: var(--ls-error);
-  background: var(--ls-error-bg);
-}
-
-/* Support Button - Prominent Pink Style */
-.ls-button-support {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--ls-space-2);
-  width: 100%;
-  padding: var(--ls-space-3) var(--ls-space-4);
-  font-family: inherit;
-  font-size: var(--ls-font-size-base);
-  font-weight: 500;
-  color: var(--ls-pink-500);
-  background: var(--ls-pink-50);
-  border: 1px solid var(--ls-pink-border);
-  border-radius: var(--ls-radius-md);
-  cursor: pointer;
-  transition:
-    background-color var(--ls-transition-fast),
-    border-color var(--ls-transition-fast),
-    box-shadow var(--ls-transition-fast),
-    transform var(--ls-transition-fast);
-}
-
-.ls-button-support:hover {
-  background: linear-gradient(135deg, var(--ls-pink-50) 0%, var(--ls-pink-100) 100%);
-  border-color: var(--ls-pink-500);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
-}
-
-.ls-button-support:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-.ls-button-support:focus-visible {
-  outline: 2px solid var(--ls-pink-500);
-  outline-offset: 2px;
-}
-
-.ls-support-heart {
-  font-size: 16px;
-  color: var(--ls-pink-500);
-  animation: heartbeat 1.5s ease-in-out infinite;
-}
-
-@keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+  color: #fff;
 }
 
 .ls-version {
-  font-size: var(--ls-font-size-xs);
-  color: var(--ls-gray-400);
+  justify-self: center;
   text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ls-text-dim);
+  font-family: var(--ls-font-mono);
 }
 
-/* ============================================
-   Animations
-   ============================================ */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Ensure dark-mode component overrides win the cascade (placed at end). */
-@media (prefers-color-scheme: dark) {
-  .ls-status:not(:empty) {
-    background: rgba(16, 185, 129, 0.12);
-    color: #bbf7d0;
-  }
-
-  .ls-status.error {
-    background: rgba(239, 68, 68, 0.14);
-    color: #fecaca;
-  }
+:focus-visible {
+  outline: 2px solid var(--ls-focus);
+  outline-offset: 2px;
 }

@@ -1,5 +1,5 @@
 /**
- * LightSession Pro - Action icon state
+ * Trimly Pro - Action icon state
  * Enable the action only on ChatGPT sites.
  */
 

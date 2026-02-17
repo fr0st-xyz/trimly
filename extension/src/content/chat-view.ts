@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Chat view helpers
+ * Trimly for ChatGPT - Chat view helpers
  */
 
 const TURN_SELECTORS = [

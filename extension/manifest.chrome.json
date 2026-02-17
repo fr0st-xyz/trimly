@@ -1,19 +1,28 @@
 {
   "manifest_version": 3,
-  "name": "LightSession Pro for ChatGPT",
-  "version": "1.7.0",
-  "description": "Keep ChatGPT fast by keeping only the last N messages in the DOM. Local-only.",
+  "name": "Trimly for ChatGPT",
+  "version": "1.2.1",
+  "description": "Trimly - Browser extension to optimize ChatGPT performance",
   "icons": {
-    "16": "icons/icon-16.png",
-    "32": "icons/icon-32.png",
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
+    "16": "assets/icons/16x16.png",
+    "32": "assets/icons/32x32.png",
+    "48": "assets/icons/48x48.png",
+    "128": "assets/icons/128x128.png"
   },
   "action": {
-    "default_title": "LightSession Pro",
+    "default_title": "Trimly",
+    "default_icon": {
+      "16": "assets/icons/16x16.png",
+      "32": "assets/icons/32x32.png",
+      "48": "assets/icons/48x48.png"
+    },
     "default_popup": "popup/popup.html"
   },
-  "permissions": ["storage", "tabs", "declarativeContent"],
+  "permissions": [
+    "storage",
+    "tabs",
+    "declarativeContent"
+  ],
   "host_permissions": [
     "*://chat.openai.com/*",
     "*://chatgpt.com/*"
@@ -24,7 +33,9 @@
         "*://chat.openai.com/*",
         "*://chatgpt.com/*"
       ],
-      "js": ["dist/page-inject.js"],
+      "js": [
+        "dist/page-inject.js"
+      ],
       "run_at": "document_start"
     },
     {
@@ -32,7 +43,9 @@
         "*://chat.openai.com/*",
         "*://chatgpt.com/*"
       ],
-      "js": ["dist/content.js"],
+      "js": [
+        "dist/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -41,8 +54,19 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["dist/page-script.js", ".dev"],
-      "matches": ["*://chat.openai.com/*", "*://chatgpt.com/*"]
+      "resources": [
+        "dist/page-script.js",
+        ".dev",
+        "assets/icons/16x16.png",
+        "assets/icons/32x32.png",
+        "assets/icons/48x48.png",
+        "assets/icons/128x128.png",
+        "assets/icons/512x512.png"
+      ],
+      "matches": [
+        "*://chat.openai.com/*",
+        "*://chatgpt.com/*"
+      ]
     }
   ]
 }

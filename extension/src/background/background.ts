@@ -1,5 +1,5 @@
 /**
- * LightSession Pro - Background Script
+ * Trimly Pro - Background Script
  * Manages settings and routes messages between content and popup scripts
  */
 

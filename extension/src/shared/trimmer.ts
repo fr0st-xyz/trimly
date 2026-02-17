@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Trimming Logic
+ * Trimly for ChatGPT - Trimming Logic
  *
  * Core algorithm for trimming ChatGPT conversation data.
  * Extracted for testability and reuse.
@@ -72,6 +72,10 @@ export function isVisibleMessage(node: ChatNode): boolean {
   return !HIDDEN_ROLES.has(role);
 }
 
+function isUserMessage(node: ChatNode): boolean {
+  return (node.message?.author?.role || '').toLowerCase() === 'user';
+}
+
 // ============================================================================
 // Trimming Algorithm
 // ============================================================================
@@ -82,12 +86,12 @@ export function isVisibleMessage(node: ChatNode): boolean {
  * Algorithm:
  * 1. Start from current_node, walk up via parent links to build the full path
  * 2. Reverse to get chronological order (oldest first)
- * 3. Count TURNS (role transitions), not individual nodes
- * 4. Keep only the last `limit` turns
+ * 3. Count USER prompts (conversation rounds)
+ * 4. Keep only the last `limit` user prompts and all visible messages after them
  * 5. Rebuild mapping with only kept nodes, fixing parent/children links
  *
  * @param data - The conversation data containing mapping and current_node
- * @param limit - Number of turns (role transitions) to keep
+ * @param limit - Number of user prompts (rounds) to keep
  * @returns TrimResult with new mapping, or null if trimming not possible
  */
 export function trimMapping(
@@ -122,51 +126,40 @@ export function trimMapping(
   const totalCount = path.length;
   const effectiveLimit = Math.max(1, limit);
 
-  // Count total TURNS (role transitions) and collect role statistics
+  // Count total visible messages (for stats)
   let visibleTotal = 0;
-  let lastVisibleRole: string | null = null;
   for (const nodeId of path) {
     const node = mapping[nodeId];
     if (node && isVisibleMessage(node)) {
-      const role = node.message?.author?.role ?? '';
-      // Count turns, not individual nodes
-      if (role !== lastVisibleRole) {
-        visibleTotal++;
-        lastVisibleRole = role;
-      }
+      visibleTotal++;
     }
   }
 
-  // Find cut point by counting TURNS (role transitions), not individual nodes
-  // A turn is a contiguous sequence of messages from the same role
-  // This matches how ChatGPT renders messages (multiple nodes = 1 bubble)
-  //
-  // We iterate backwards (newest to oldest) and count turns on role changes.
-  // When we've counted N turns and see a NEW turn (N+1), we break.
-  // cutIndex = i+1 ensures we keep all nodes of the Nth turn.
-  let turnCount = 0;
+  // Find cut point by user prompt count:
+  // keep last N user messages and everything after the oldest kept user.
   let cutIndex = 0;
-  let lastRole: string | null = null;
-
-  for (let i = path.length - 1; i >= 0; i--) {
+  const userIndices: number[] = [];
+  const visibleIndices: number[] = [];
+  for (let i = 0; i < path.length; i++) {
     const nodeId = path[i];
     if (!nodeId) continue;
 
     const node = mapping[nodeId];
     if (node && isVisibleMessage(node)) {
-      const role = node.message?.author?.role ?? '';
-      // Count turn when role changes (or first visible message)
-      if (role !== lastRole) {
-        turnCount++;
-        lastRole = role;
-      }
-      // Break when we've EXCEEDED the limit (entering turn N+1)
-      // This ensures all nodes of turn N are included
-      if (turnCount > effectiveLimit) {
-        cutIndex = i + 1; // Start from the first node of the Nth turn
-        break;
+      visibleIndices.push(i);
+      if (isUserMessage(node)) {
+        userIndices.push(i);
       }
     }
+  }
+
+  if (userIndices.length > effectiveLimit) {
+    const startUserIndex = userIndices[userIndices.length - effectiveLimit];
+    cutIndex = startUserIndex ?? 0;
+  } else if (userIndices.length === 0 && visibleIndices.length > effectiveLimit) {
+    // Fallback for atypical threads with no user nodes.
+    const startVisibleIndex = visibleIndices[visibleIndices.length - effectiveLimit];
+    cutIndex = startVisibleIndex ?? 0;
   }
 
   const keptRaw = path.slice(cutIndex);
@@ -188,9 +181,6 @@ export function trimMapping(
 
   // Build new mapping with kept nodes + original root
   const newMapping: ChatMapping = {};
-  let turnsKept = 0;
-  let prevRole: string | null = null;
-
   // Add original root node first (the "(no role)" anchor node)
   if (hasOriginalRoot) {
     newMapping[originalRootId] = {
@@ -217,16 +207,10 @@ export function trimMapping(
         parent: prevId ?? null,
         children: nextId ? [nextId] : [],
       };
-      // Count turns (role transitions) for accurate display
-      const role = originalNode.message?.author?.role ?? '';
-      if (role !== prevRole && isVisibleMessage(originalNode)) {
-        turnsKept++;
-        prevRole = role;
-      }
     }
   }
 
-  const visibleKept = turnsKept;
+  const visibleKept = kept.length;
 
   // Use original root if available, otherwise first kept node
   const newRoot = hasOriginalRoot ? originalRootId : kept[0];

@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Page Script Injector
+ * Trimly for ChatGPT - Page Script Injector
  *
  * This content script runs at document_start to:
  * 1. Sync settings from browser.storage to localStorage (for page-script access)
@@ -33,7 +33,7 @@ async function syncSettingsToLocalStorage(): Promise<void> {
       // Write to localStorage for page-script access
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
       // Dispatch event immediately - faster than waiting for content.ts (document_idle)
-      window.dispatchEvent(new CustomEvent('lightsession-config', { detail: JSON.stringify(config) }));
+      window.dispatchEvent(new CustomEvent('trimly-config', { detail: JSON.stringify(config) }));
     }
   } catch {
     // Storage access failed - page-script will use defaults after timeout
@@ -55,7 +55,7 @@ function injectPageScript(): void {
   };
 
   script.onerror = (): void => {
-    console.error('[LightSession] Failed to load page script');
+    console.error('[Trimly] Failed to load page script');
     script.remove();
   };
 }

@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Logger Utility
+ * Trimly for ChatGPT - Logger Utility
  * Centralized logging with debug mode control
  */
 

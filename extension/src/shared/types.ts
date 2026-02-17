@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Shared Type Definitions
+ * Trimly for ChatGPT - Shared Type Definitions
  * All core interfaces and type definitions used across the extension
  */
 

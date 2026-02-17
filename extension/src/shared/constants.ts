@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Constants
+ * Trimly for ChatGPT - Constants
  * All magic numbers, timing values, and selector definitions
  */
 
@@ -148,4 +148,6 @@ export const VALIDATION = {
 // External URLs
 // ============================================================================
 
-export const SUPPORT_URL = 'https://github.com/11me/light-session?tab=readme-ov-file#%EF%B8%8F-support' as const;
+export const GITHUB_REPO_URL = 'https://github.com/11me/trimly' as const;
+// Replace with your real donation page URL.
+export const DONATION_URL = 'https://buymeacoffee.com/' as const;

@@ -1,8 +1,8 @@
 {
-  "name": "light-session",
-  "version": "1.7.0",
+  "name": "trimly",
+  "version": "1.2.1",
   "type": "module",
-  "description": "LightSession Pro - Browser extension to optimize ChatGPT performance",
+  "description": "Trimly - Browser extension to optimize ChatGPT performance",
   "engines": {
     "node": ">=24.10.0"
   },
@@ -11,9 +11,9 @@
     "build:firefox": "node build.cjs --target=firefox",
     "build:chrome": "node build.cjs --target=chrome",
     "build:types": "tsc --noEmit",
-    "build:prod": "rm -f extension/.dev && NODE_ENV=production node build.cjs",
-    "build:prod:firefox": "rm -f extension/.dev && NODE_ENV=production node build.cjs --target=firefox",
-    "build:prod:chrome": "rm -f extension/.dev && NODE_ENV=production node build.cjs --target=chrome",
+    "build:prod": "node build.cjs --production",
+    "build:prod:firefox": "node build.cjs --target=firefox --production",
+    "build:prod:chrome": "node build.cjs --target=chrome --production",
     "watch": "node build.cjs --watch",
     "watch:chrome": "node build.cjs --target=chrome --watch",
     "lint": "eslint extension/src",
@@ -26,7 +26,7 @@
     "dev": "npm run build:firefox && web-ext run --source-dir=extension --firefox=firefoxdeveloperedition --start-url='https://chat.openai.com'",
     "dev:stable": "npm run build:firefox && web-ext run --source-dir=extension --firefox=firefox --start-url='https://chat.openai.com'",
     "package": "npm run build:prod:firefox && web-ext build --source-dir=extension --artifacts-dir=web-ext-artifacts",
-    "package:chrome": "npm run build:prod:chrome && cd extension && zip -r ../web-ext-artifacts/lightsession-chrome.zip . -x '*.ts' -x 'src/*' -x 'manifest.*.json'",
+    "package:chrome": "npm run build:prod:chrome && cd extension && zip -r ../web-ext-artifacts/trimly-chrome.zip . -x '*.ts' -x 'src/*' -x 'manifest.*.json'",
     "clean": "rm -rf extension/dist extension/popup/popup.js web-ext-artifacts"
   },
   "keywords": [
@@ -46,7 +46,7 @@
     "performance-optimization",
     "lag-fix"
   ],
-  "author": "LightSession Contributors",
+  "author": "Trimly Contributors",
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.2",

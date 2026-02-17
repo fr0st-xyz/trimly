@@ -1,12 +1,14 @@
 /**
- * LightSession Pro - Popup UI Logic
+ * Trimly Pro - Popup UI Logic
  * Settings interface and interaction handlers
  */
 
 import browser from '../shared/browser-polyfill';
 import type { LsSettings } from '../shared/types';
 import { sendMessageWithTimeout } from '../shared/messages';
-import { SUPPORT_URL } from '../shared/constants';
+import { GITHUB_REPO_URL, DONATION_URL } from '../shared/constants';
+
+declare const __LS_IS_PROD__: boolean;
 
 /**
  * Get DOM element by ID with null safety.
@@ -38,9 +40,12 @@ let collapseLongUserMessagesCheckbox: HTMLInputElement | null;
 let debugCheckbox: HTMLInputElement | null;
 let debugGroup: HTMLElement | null;
 let statusElement: HTMLElement;
-let supportLink: HTMLButtonElement;
+let githubLink: HTMLButtonElement;
+let donateLink: HTMLButtonElement;
 let retentionCard: HTMLElement | null;
 let optionsCard: HTMLElement | null;
+let chatCountsElement: HTMLElement | null;
+let currentKeepSetting = 10;
 
 // Debounce/throttle state for slider persistence
 let sliderDebounceTimeout: number | null = null;
@@ -50,6 +55,16 @@ const SLIDER_SAVE_THROTTLE_MS = 150;
 
 // Status message timeout state
 let statusClearTimeout: number | null = null;
+let chatCountsPollTimer: number | null = null;
+
+interface ChatCountResponse {
+  ok: true;
+  counts: {
+    total: number;
+    visible: number;
+    trimmed: number;
+  };
+}
 
 /**
  * Schedule updating the keep setting with optional immediate flush
@@ -125,28 +140,27 @@ async function isDevMode(): Promise<boolean> {
 }
 
 /**
- * Reload the active ChatGPT tab to apply settings changes.
- * Settings like message limit require a page reload to take effect
- * because the fetch proxy caches settings at intercept time.
+ * Reload active ChatGPT tab so older messages can be fetched again.
+ * Needed when keep value increases beyond what is currently loaded.
  */
 async function reloadActiveChatGPTTab(): Promise<void> {
   try {
-    // Query for active tab in current window
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     const activeTab = tabs[0];
-
-    if (activeTab?.id && activeTab.url) {
-      // Only reload if it's a ChatGPT page
-      const isChatGPT =
-        activeTab.url.includes('chat.openai.com') ||
-        activeTab.url.includes('chatgpt.com');
-
-      if (isChatGPT) {
-        await browser.tabs.reload(activeTab.id);
-      }
+    if (!activeTab?.id || !activeTab.url) {
+      return;
     }
+
+    const isChatGPT =
+      activeTab.url.includes('chat.openai.com') ||
+      activeTab.url.includes('chatgpt.com');
+    if (!isChatGPT) {
+      return;
+    }
+
+    await browser.tabs.reload(activeTab.id);
   } catch (error) {
-    console.error('Failed to reload tab:', error);
+    console.error('Failed to reload active tab:', error);
   }
 }
 
@@ -160,7 +174,8 @@ async function initialize(): Promise<void> {
   keepValue = getRequiredElement<HTMLElement>('keepValue');
   sliderTrackFill = getRequiredElement<HTMLElement>('sliderTrackFill');
   statusElement = getRequiredElement<HTMLElement>('status');
-  supportLink = getRequiredElement<HTMLButtonElement>('supportLink');
+  githubLink = getRequiredElement<HTMLButtonElement>('githubLink');
+  donateLink = getRequiredElement<HTMLButtonElement>('donateLink');
 
   // Get optional UI elements (may not exist in all configurations)
   showStatusBarCheckbox = getOptionalElement<HTMLInputElement>('showStatusBarCheckbox');
@@ -171,9 +186,10 @@ async function initialize(): Promise<void> {
   debugGroup = getOptionalElement<HTMLElement>('debugGroup');
   retentionCard = getOptionalElement<HTMLElement>('retentionCard');
   optionsCard = getOptionalElement<HTMLElement>('optionsCard');
+  chatCountsElement = getOptionalElement<HTMLElement>('chatCounts');
 
   // Check if dev mode and show debug options
-  const devMode = await isDevMode();
+  const devMode = !__LS_IS_PROD__ && (await isDevMode());
   if (devMode && debugGroup) {
     debugGroup.style.display = 'block';
   }
@@ -211,7 +227,20 @@ async function initialize(): Promise<void> {
   if (debugCheckbox) {
     debugCheckbox.addEventListener('change', handleDebugToggle);
   }
-  supportLink.addEventListener('click', handleSupportClick);
+  githubLink.addEventListener('click', handleGithubClick);
+  donateLink.addEventListener('click', handleDonateClick);
+
+  // Start lightweight polling while popup is open.
+  void refreshChatCounts();
+  chatCountsPollTimer = window.setInterval(() => {
+    void refreshChatCounts();
+  }, 1000);
+  window.addEventListener('unload', () => {
+    if (chatCountsPollTimer !== null) {
+      clearInterval(chatCountsPollTimer);
+      chatCountsPollTimer = null;
+    }
+  });
 }
 
 /**
@@ -230,6 +259,7 @@ async function loadSettings(): Promise<void> {
     keepSlider.value = settings.keep.toString();
     keepValue.textContent = settings.keep.toString();
     keepSlider.setAttribute('aria-valuenow', settings.keep.toString());
+    currentKeepSetting = settings.keep;
     updateSliderTrackFill();
 
     if (showStatusBarCheckbox) {
@@ -279,8 +309,6 @@ async function handleEnableToggle(): Promise<void> {
   const enabled = enableToggle.checked;
   await updateSettings({ enabled });
   updateDisabledState(enabled);
-  // Reload page to apply the change
-  await reloadActiveChatGPTTab();
 }
 
 /**
@@ -299,6 +327,7 @@ function handleKeepSliderInput(): void {
  */
 async function handleKeepSliderChange(): Promise<void> {
   const value = parseInt(keepSlider.value, 10);
+  const previousKeep = currentKeepSetting;
 
   // Clear any pending debounced updates
   if (sliderDebounceTimeout !== null) {
@@ -307,9 +336,16 @@ async function handleKeepSliderChange(): Promise<void> {
   }
   pendingKeepValue = null;
 
-  // Save immediately and reload page
+  // Save immediately (page script receives new config without reload)
   await updateSettings({ keep: value });
-  await reloadActiveChatGPTTab();
+  currentKeepSetting = value;
+
+  // Increasing retention requires re-fetching full conversation data.
+  // Do this automatically so older messages can appear again.
+  if (value > previousKeep) {
+    showStatus('Reloading chat to restore older messages…');
+    await reloadActiveChatGPTTab();
+  }
 }
 
 /**
@@ -340,10 +376,54 @@ function handleDebugToggle(): void {
 }
 
 /**
- * Handle support button click
+ * Handle GitHub button click
  */
-function handleSupportClick(): void {
-  void browser.tabs.create({ url: SUPPORT_URL });
+function handleGithubClick(): void {
+  void browser.tabs.create({ url: GITHUB_REPO_URL });
+}
+
+/**
+ * Handle donation button click
+ */
+function handleDonateClick(): void {
+  void browser.tabs.create({ url: DONATION_URL });
+}
+
+async function refreshChatCounts(): Promise<void> {
+  if (!chatCountsElement) {
+    return;
+  }
+
+  try {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    const activeTab = tabs[0];
+    if (!activeTab?.id || !activeTab.url) {
+      chatCountsElement.textContent = 'Open a ChatGPT conversation';
+      return;
+    }
+
+    const isChatGPT =
+      activeTab.url.includes('chat.openai.com') ||
+      activeTab.url.includes('chatgpt.com');
+    if (!isChatGPT) {
+      chatCountsElement.textContent = 'Open a ChatGPT conversation';
+      return;
+    }
+
+    const response = (await browser.tabs.sendMessage(activeTab.id, {
+      type: 'LS_GET_CHAT_COUNTS',
+    })) as ChatCountResponse | undefined;
+
+    if (!response?.ok) {
+      chatCountsElement.textContent = 'Detecting messages...';
+      return;
+    }
+
+    const { visible, total } = response.counts;
+    chatCountsElement.textContent = `Current chat: ${visible} rounds / ${total} total rounds`;
+  } catch {
+    chatCountsElement.textContent = 'Detecting messages...';
+  }
 }
 
 /**

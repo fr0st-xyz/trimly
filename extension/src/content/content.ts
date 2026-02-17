@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Content Script
+ * Trimly for ChatGPT - Content Script
  *
  * Simplified content script that works with the Fetch Proxy (page-script.ts).
  * Responsibilities:
@@ -22,7 +22,8 @@ import {
 } from './status-bar';
 import { isEmptyChatView } from './chat-view';
 import { installUserCollapse, type UserCollapseController } from './user-collapse';
-import { isLightSessionRejection } from './rejection-filter';
+import { isTrimlyRejection } from './rejection-filter';
+import { installDomTrimmer, type DomTrimmerController, type DomTrimStatus } from './dom-trimmer';
 
 
 // ============================================================================
@@ -33,6 +34,12 @@ interface PageScriptConfig {
   enabled: boolean;
   limit: number;
   debug: boolean;
+}
+
+interface ChatCountPayload {
+  total: number;
+  visible: number;
+  trimmed: number;
 }
 
 /**
@@ -60,6 +67,7 @@ let emptyChatState = false;
 let emptyChatCheckTimer: number | null = null;
 let emptyChatObserver: MutationObserver | null = null;
 let userCollapse: UserCollapseController | null = null;
+let domTrimmer: DomTrimmerController | null = null;
 
 // ============================================================================
 // Page Script Communication
@@ -67,7 +75,7 @@ let userCollapse: UserCollapseController | null = null;
 
 /**
  * Dispatch configuration to the page script via CustomEvent.
- * The page script listens for 'lightsession-config' events.
+ * The page script listens for 'trimly-config' events.
  *
  * Cross-browser compatibility:
  * - Firefox: Content scripts run in an isolated sandbox (Xray vision).
@@ -92,7 +100,7 @@ function dispatchConfig(settings: LsSettings): void {
   // JSON string is safely passed as a primitive
   const jsonString = JSON.stringify(config);
 
-  window.dispatchEvent(new CustomEvent('lightsession-config', { detail: jsonString }));
+  window.dispatchEvent(new CustomEvent('trimly-config', { detail: jsonString }));
 
   logDebug('Dispatched config to page script:', config);
 }
@@ -110,6 +118,7 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
   }
 
   logDebug('Received trim status:', status);
+  latestTrimStatus = status;
 
   // Convert page script status format to status bar format
   updateStatusBar({
@@ -118,6 +127,52 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
     trimmedMessages: status.removed,
     keepLastN: status.limit,
   });
+}
+
+function handleDomTrimStatus(status: DomTrimStatus): void {
+  // Keep latest status in the same shape as page-script status
+  latestTrimStatus = {
+    totalBefore: status.totalRounds,
+    keptAfter: status.visibleRounds,
+    removed: status.trimmedRounds,
+    limit: status.keep,
+  };
+
+  updateStatusBar({
+    totalMessages: status.totalRounds,
+    visibleMessages: status.visibleRounds,
+    trimmedMessages: status.trimmedRounds,
+    keepLastN: status.keep,
+  });
+}
+
+function getDomChatCounts(): ChatCountPayload {
+  const nodes = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-message-id][data-message-author-role]')
+  ).filter((node) => {
+    const role = (node.getAttribute('data-message-author-role') || '').toLowerCase();
+    return role === 'user';
+  });
+
+  const total = nodes.length;
+  let visible = 0;
+  for (const node of nodes) {
+    if (!node.closest('[data-ls-dom-trimmed]')) {
+      visible += 1;
+    }
+  }
+
+  return {
+    total,
+    visible,
+    trimmed: Math.max(0, total - visible),
+  };
+}
+
+function getChatCounts(): ChatCountPayload {
+  // Count "rounds" as user prompts: one user message + its assistant response = 1.
+  // This matches the popup expectation for conversation message counting.
+  return getDomChatCounts();
 }
 
 /**
@@ -186,6 +241,15 @@ function applySettings(settings: LsSettings): void {
     userCollapse = null;
   }
 
+  // Apply immediate DOM trimming so settings take effect without page reload.
+  if (!domTrimmer) {
+    domTrimmer = installDomTrimmer(handleDomTrimStatus);
+  }
+  domTrimmer.setConfig({
+    enabled: settings.enabled,
+    keep: settings.keep,
+  });
+
   logDebug('Settings applied:', settings);
 }
 
@@ -250,6 +314,7 @@ function setupNavigationDetection(): void {
       lastUrl = location.href;
 
       logDebug(`${source} navigation:`, lastUrl);
+      latestTrimStatus = null;
       resetAccumulatedTrimmed();
       refreshStatusBar();
 
@@ -258,6 +323,7 @@ function setupNavigationDetection(): void {
       if (currentSettings?.enabled && currentSettings.collapseLongUserMessages) {
         userCollapse?.enable();
       }
+      domTrimmer?.runNow();
     });
   };
 
@@ -270,7 +336,7 @@ function setupNavigationDetection(): void {
 
   // Patch history methods for SPA navigation detection
   // Guard against double patching (e.g. extension reload / unexpected reinjection).
-  const PATCH_FLAG = '__lightsession_patched_history__';
+  const PATCH_FLAG = '__trimly_patched_history__';
   const patchScope = window as unknown as Record<string, unknown>;
   if (patchScope[PATCH_FLAG] === true) return;
   patchScope[PATCH_FLAG] = true;
@@ -302,6 +368,7 @@ function setupNavigationDetection(): void {
 function checkEmptyChatView(): void {
   const isEmpty = isEmptyChatView(document);
   if (isEmpty && !emptyChatState) {
+    latestTrimStatus = null;
     resetAccumulatedTrimmed();
     refreshStatusBar();
   }
@@ -341,7 +408,7 @@ function setupEmptyChatObserver(): void {
  */
 function setupEventListeners(): void {
   // Listen for trim status from page script
-  window.addEventListener('lightsession-status', ((event: CustomEvent<unknown>) => {
+  window.addEventListener('trimly-status', ((event: CustomEvent<unknown>) => {
     handleTrimStatus(event);
   }) as EventListener);
 
@@ -351,13 +418,13 @@ function setupEventListeners(): void {
     if (event.origin !== location.origin) return;
 
     const data = event.data as { type?: string } | null;
-    if (data?.type === 'lightsession-proxy-ready') {
+    if (data?.type === 'trimly-proxy-ready') {
       handleProxyReady();
     }
   });
 
   // Listen for config request from page script (handles race condition)
-  window.addEventListener('lightsession-request-config', () => {
+  window.addEventListener('trimly-request-config', () => {
     if (currentSettings) {
       dispatchConfig(currentSettings);
     }
@@ -365,6 +432,18 @@ function setupEventListeners(): void {
 
   // Listen for storage changes
   browser.storage.onChanged.addListener(handleStorageChange);
+
+  // Popup asks content script for live chat counts.
+  browser.runtime.onMessage.addListener((message: unknown) => {
+    const m = message as { type?: string } | null;
+    if (m?.type !== 'LS_GET_CHAT_COUNTS') {
+      return undefined;
+    }
+    return Promise.resolve({
+      ok: true,
+      counts: getChatCounts(),
+    });
+  });
 }
 
 /**
@@ -372,7 +451,7 @@ function setupEventListeners(): void {
  */
 async function initialize(): Promise<void> {
   try {
-    logInfo('LightSession content script initializing...');
+    logInfo('Trimly content script initializing...');
 
     // Set up event listeners first (before settings load)
     setupEventListeners();
@@ -396,7 +475,7 @@ async function initialize(): Promise<void> {
     // Check proxy status after a short delay
     setTimeout(checkProxyStatus, TIMING.PROXY_READY_TIMEOUT_MS);
 
-    logInfo('LightSession content script initialized');
+    logInfo('Trimly content script initialized');
   } catch (error) {
     logError('Failed to initialize:', error);
   }
@@ -427,7 +506,7 @@ if (document.readyState === 'loading') {
  * Global error handler to prevent extension errors from breaking the page
  */
 window.addEventListener('error', (event) => {
-  if (event.message?.includes('LS:') || event.filename?.includes('light-session')) {
+  if (event.message?.includes('LS:') || event.filename?.includes('trimly')) {
     logError('Unhandled error:', event.error || event.message);
     event.preventDefault();
   }
@@ -441,9 +520,9 @@ window.addEventListener('unhandledrejection', (event) => {
     extensionUrlPrefix = undefined;
   }
 
-  // Do not suppress site (ChatGPT) errors. Only suppress if it clearly originates from LightSession.
-  const strictIsOurs = isLightSessionRejection(event.reason, extensionUrlPrefix);
-  const looseIsOurs = isLightSessionRejection(event.reason);
+  // Do not suppress site (ChatGPT) errors. Only suppress if it clearly originates from Trimly.
+  const strictIsOurs = isTrimlyRejection(event.reason, extensionUrlPrefix);
+  const looseIsOurs = isTrimlyRejection(event.reason);
 
   if (strictIsOurs || looseIsOurs) {
     logError('Unhandled promise rejection:', event.reason);

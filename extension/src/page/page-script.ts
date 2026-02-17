@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Page Script (Fetch Proxy)
+ * Trimly for ChatGPT - Page Script (Fetch Proxy)
  *
  * This script runs in the page context (not content script isolated world).
  * It patches window.fetch to intercept ChatGPT API responses and trim
@@ -142,7 +142,7 @@ function log(...args: unknown[]): void {
  */
 function dispatchStatus(status: TrimStatus): void {
   window.dispatchEvent(
-    new CustomEvent('lightsession-status', { detail: status })
+    new CustomEvent('trimly-status', { detail: status })
   );
 }
 
@@ -386,11 +386,11 @@ function patchFetch(): void {
   log('Fetch proxy installed');
 
   // Notify content script that proxy is ready (use origin for security)
-  window.postMessage({ type: 'lightsession-proxy-ready' }, location.origin);
+  window.postMessage({ type: 'trimly-proxy-ready' }, location.origin);
 
   // Request config from content script (handles race condition where
   // content script may have loaded before page script sent ready signal)
-  window.dispatchEvent(new CustomEvent('lightsession-request-config'));
+  window.dispatchEvent(new CustomEvent('trimly-request-config'));
 }
 
 /**
@@ -398,7 +398,7 @@ function patchFetch(): void {
  * Config is received as JSON string for cross-browser compatibility.
  */
 function setupConfigListener(): void {
-  window.addEventListener('lightsession-config', ((event: CustomEvent<string>) => {
+  window.addEventListener('trimly-config', ((event: CustomEvent<string>) => {
     const detail = event.detail;
 
     // Parse JSON string (content script serializes config for Chrome compatibility)

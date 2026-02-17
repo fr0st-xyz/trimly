@@ -55,11 +55,11 @@ jobs:
       - name: Create Firefox extension zip
         run: |
           cd extension
-          zip -r ../light-session-${{ steps.version.outputs.VERSION }}-firefox.zip \
+          zip -r ../trimly-${{ steps.version.outputs.VERSION }}-firefox.zip \
             manifest.json \
             dist/ \
             popup/ \
-            icons/ \
+            assets/icons/ \
             -x "*.map"
 
       # =========================================================================
@@ -83,11 +83,11 @@ jobs:
       - name: Create Chrome extension zip
         run: |
           cd extension
-          zip -r ../light-session-${{ steps.version.outputs.VERSION }}-chrome.zip \
+          zip -r ../trimly-${{ steps.version.outputs.VERSION }}-chrome.zip \
             manifest.json \
             dist/ \
             popup/ \
-            icons/ \
+            assets/icons/ \
             -x "*.map"
 
       # =========================================================================
@@ -95,7 +95,7 @@ jobs:
       # =========================================================================
       - name: Create source zip
         run: |
-          zip -r light-session-${{ steps.version.outputs.VERSION }}-source.zip \
+          zip -r trimly-${{ steps.version.outputs.VERSION }}-source.zip \
             package.json \
             package-lock.json \
             tsconfig.json \
@@ -109,7 +109,7 @@ jobs:
             .node-version \
             docs/ \
             extension/src/ \
-            extension/icons/ \
+            extension/assets/icons/ \
             extension/manifest.firefox.json \
             extension/manifest.chrome.json \
             tests/
@@ -122,28 +122,28 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            light-session-${{ steps.version.outputs.VERSION }}-firefox.zip
-            light-session-${{ steps.version.outputs.VERSION }}-chrome.zip
-            light-session-${{ steps.version.outputs.VERSION }}-source.zip
+            trimly-${{ steps.version.outputs.VERSION }}-firefox.zip
+            trimly-${{ steps.version.outputs.VERSION }}-chrome.zip
+            trimly-${{ steps.version.outputs.VERSION }}-source.zip
           body: |
-            ## LightSession v${{ steps.version.outputs.VERSION }}
+            ## Trimly v${{ steps.version.outputs.VERSION }}
 
             ### Installation
 
             **Firefox Add-ons (recommended):**
-            [Install from AMO](https://addons.mozilla.org/en-US/firefox/addon/lightsession-for-chatgpt/)
+            [Install from AMO](https://addons.mozilla.org/en-US/firefox/addon/trimly-for-chatgpt/)
 
             **Chrome Web Store:**
-            [Install from Chrome Web Store](https://chrome.google.com/webstore/detail/lightsession-for-chatgpt/${{ secrets.CHROME_EXTENSION_ID }})
+            [Install from Chrome Web Store](https://chrome.google.com/webstore/detail/trimly-for-chatgpt/${{ secrets.CHROME_EXTENSION_ID }})
 
             **Manual install (Firefox):**
-            1. Download `light-session-${{ steps.version.outputs.VERSION }}-firefox.zip`
+            1. Download `trimly-${{ steps.version.outputs.VERSION }}-firefox.zip`
             2. Open `about:debugging#/runtime/this-firefox` in Firefox
             3. Click "Load Temporary Add-on"
             4. Select the downloaded zip file
 
             **Manual install (Chrome):**
-            1. Download `light-session-${{ steps.version.outputs.VERSION }}-chrome.zip`
+            1. Download `trimly-${{ steps.version.outputs.VERSION }}-chrome.zip`
             2. Open `chrome://extensions` in Chrome
             3. Enable "Developer mode"
             4. Click "Load unpacked" and select the extracted folder
@@ -157,10 +157,10 @@ jobs:
         uses: browser-actions/release-firefox-addon@v0.2.1
         with:
           addon-id: ${{ secrets.FIREFOX_ADDON_ID }}
-          addon-path: light-session-${{ steps.version.outputs.VERSION }}-firefox.zip
+          addon-path: trimly-${{ steps.version.outputs.VERSION }}-firefox.zip
           auth-api-issuer: ${{ secrets.FIREFOX_API_ISSUER }}
           auth-api-secret: ${{ secrets.FIREFOX_API_SECRET }}
-          release-note: "See release notes at https://github.com/11me/light-session/releases/tag/v${{ steps.version.outputs.VERSION }}"
+          release-note: "See release notes at https://github.com/11me/trimly/releases/tag/v${{ steps.version.outputs.VERSION }}"
 
       # =========================================================================
       # Chrome Web Store Publishing
@@ -169,7 +169,7 @@ jobs:
         uses: browser-actions/release-chrome-extension@v0.2.1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          extension-path: light-session-${{ steps.version.outputs.VERSION }}-chrome.zip
+          extension-path: trimly-${{ steps.version.outputs.VERSION }}-chrome.zip
           oauth-client-id: ${{ secrets.CHROME_CLIENT_ID }}
           oauth-client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           oauth-refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}

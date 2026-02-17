@@ -1,5 +1,5 @@
 /**
- * LightSession for ChatGPT - Collapse long user messages (presentation-only)
+ * Trimly for ChatGPT - Collapse long user messages (presentation-only)
  *
  * Constraints:
  * - Do not truncate or rewrite message text content (no innerHTML rewriting).
@@ -9,7 +9,7 @@
 
 import { logDebug, logWarn } from '../shared/logger';
 
-const STYLE_ID = 'lightsession-user-collapse-styles';
+const STYLE_ID = 'trimly-user-collapse-styles';
 const PROCESSED_ATTR = 'data-ls-uc-processed';
 const STATE_ATTR = 'data-ls-uc-state'; // "collapsed" | "expanded"
 
@@ -34,31 +34,46 @@ function ensureStyles(): void {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-/* LightSession: user message collapse */
+/* Trimly: user message collapse */
 .ls-uc-bubble { position: relative; }
 .ls-uc-text { position: relative; }
 
 .ls-uc-toggle {
-  position: absolute;
-  right: 10px;
-  bottom: 8px;
-  z-index: 1;
+  position: static;
+  z-index: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(0,0,0,.14);
+  justify-content: center;
+  min-height: 28px;
+  margin-top: 8px;
+  margin-left: auto;
+  border: 1px solid rgba(0,0,0,.18);
   border-radius: 9999px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: rgba(255,255,255,.92);
+  letter-spacing: .01em;
+  background: rgba(255,255,255,.88);
   color: rgba(17,24,39,.92);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
 }
-.ls-uc-toggle:hover { background: rgba(255,255,255,.98); }
+.ls-uc-toggle:hover {
+  background: rgba(255,255,255,.97);
+  border-color: rgba(0,0,0,.24);
+}
+.ls-uc-toggle:active { transform: translateY(1px); }
 .ls-uc-toggle:focus-visible {
   outline: 2px solid rgba(37, 99, 235, .9);
   outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .ls-uc-toggle {
+    min-height: 32px;
+    padding: 7px 14px;
+  }
 }
 
 /* Clamp only the text container */

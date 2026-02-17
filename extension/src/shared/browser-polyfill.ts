@@ -1,5 +1,5 @@
 /**
- * LightSession Pro - Browser API Polyfill
+ * Trimly Pro - Browser API Polyfill
  *
  * Cross-browser compatibility layer for WebExtension APIs.
  * - Firefox: uses global `browser` object (Promise-based)
