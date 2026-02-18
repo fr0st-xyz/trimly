@@ -69,6 +69,7 @@ let emptyChatObserver: MutationObserver | null = null;
 let userCollapse: UserCollapseController | null = null;
 let domTrimmer: DomTrimmerController | null = null;
 let authoritativeTotalRounds: number | null = null;
+const conversationTotalsCache = new Map<string, number>();
 let lastBackfillReloadAt = 0;
 let lastKeepOneReloadAt = 0;
 
@@ -120,22 +121,51 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
     return;
   }
 
+  // Ignore stale status events when not in a conversation route.
+  if (!isConversationRoute()) {
+    updateStatusBar({
+      totalMessages: 0,
+      visibleMessages: 0,
+      trimmedMessages: 0,
+      keepLastN: Math.max(1, currentSettings?.keep ?? 10),
+    });
+    return;
+  }
+
   logDebug('Received trim status:', status);
-  authoritativeTotalRounds = status.totalBefore;
+  const domCounts = getDomChatCounts();
+  const mergedTotal = Math.max(status.totalBefore, domCounts.total, authoritativeTotalRounds ?? 0);
+  authoritativeTotalRounds = mergedTotal;
+  cacheConversationTotal(mergedTotal);
+  const keep = Math.max(1, currentSettings?.keep ?? status.limit);
+  const visible = currentSettings?.enabled === false ? mergedTotal : Math.min(mergedTotal, keep);
 
   // Convert page script status format to status bar format
   updateStatusBar({
-    totalMessages: status.totalBefore,
-    visibleMessages: status.keptAfter,
-    trimmedMessages: status.removed,
-    keepLastN: status.limit,
+    totalMessages: mergedTotal,
+    visibleMessages: visible,
+    trimmedMessages: Math.max(0, mergedTotal - visible),
+    keepLastN: keep,
   });
 }
 
 function handleDomTrimStatus(status: DomTrimStatus): void {
+  if (!isConversationRoute()) {
+    updateStatusBar({
+      totalMessages: 0,
+      visibleMessages: 0,
+      trimmedMessages: 0,
+      keepLastN: Math.max(1, currentSettings?.keep ?? 10),
+    });
+    return;
+  }
+
+  const domCounts = getDomChatCounts();
   const totalRounds = authoritativeTotalRounds === null
-    ? status.totalRounds
-    : Math.max(authoritativeTotalRounds, status.totalRounds);
+    ? Math.max(status.totalRounds, domCounts.total)
+    : Math.max(authoritativeTotalRounds, status.totalRounds, domCounts.total);
+  authoritativeTotalRounds = totalRounds;
+  cacheConversationTotal(totalRounds);
   const visibleRounds = currentSettings?.enabled ? Math.min(totalRounds, Math.max(1, status.keep)) : totalRounds;
   const trimmedRounds = Math.max(0, totalRounds - visibleRounds);
 
@@ -148,17 +178,15 @@ function handleDomTrimStatus(status: DomTrimStatus): void {
 }
 
 function getDomChatCounts(): ChatCountPayload {
-  const nodes = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-message-id][data-message-author-role]')
-  ).filter((node) => {
-    const role = (node.getAttribute('data-message-author-role') || '').toLowerCase();
-    return role === 'user';
-  });
+  if (!isConversationRoute()) {
+    return { total: 0, visible: 0, trimmed: 0 };
+  }
 
-  const total = nodes.length;
+  const turns = getConversationUserTurns();
+  const total = turns.length;
   let visible = 0;
-  for (const node of nodes) {
-    if (!node.closest('[data-ls-dom-trimmed]')) {
+  for (const turn of turns) {
+    if (!turn.closest('[data-ls-dom-trimmed], [data-ls-dom-shell-collapsed]')) {
       visible += 1;
     }
   }
@@ -170,13 +198,55 @@ function getDomChatCounts(): ChatCountPayload {
   };
 }
 
+function getConversationUserTurns(): HTMLElement[] {
+  const rawTurns = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      'article[data-turn], [data-testid^="conversation-turn"], [data-turn-id]'
+    )
+  );
+  if (rawTurns.length === 0) {
+    return [];
+  }
+
+  // Deduplicate and keep top-level wrappers only (drop nested turn candidates).
+  const unique = Array.from(new Set(rawTurns));
+  const wrappers: HTMLElement[] = [];
+  for (const turn of unique) {
+    if (wrappers.some((kept) => kept.contains(turn))) {
+      continue;
+    }
+    for (let i = wrappers.length - 1; i >= 0; i--) {
+      const kept = wrappers[i];
+      if (kept && turn.contains(kept)) {
+        wrappers.splice(i, 1);
+      }
+    }
+    wrappers.push(turn);
+  }
+
+  const users: HTMLElement[] = [];
+  for (const turn of wrappers) {
+    const ownRole = (turn.getAttribute('data-message-author-role') || '').toLowerCase();
+    const nestedRole = (
+      turn.querySelector<HTMLElement>('[data-message-author-role]')?.getAttribute('data-message-author-role') || ''
+    ).toLowerCase();
+    const role = ownRole || nestedRole;
+    if (role === 'user' || turn.getAttribute('data-turn') === 'user') {
+      users.push(turn);
+    }
+  }
+
+  return users;
+}
+
 function getChatCounts(): ChatCountPayload {
   // Prefer authoritative totals from fetch-trim status (full conversation),
   // then merge with live DOM counts.
   const dom = getDomChatCounts();
+  const cachedTotal = getCachedConversationTotal() ?? 0;
   const total = authoritativeTotalRounds === null
-    ? dom.total
-    : Math.max(authoritativeTotalRounds, dom.total);
+    ? Math.max(dom.total, cachedTotal)
+    : Math.max(authoritativeTotalRounds, dom.total, cachedTotal);
   const keep = Math.max(1, currentSettings?.keep ?? dom.visible);
   const visible = currentSettings?.enabled === false ? total : Math.min(total, keep);
   return {
@@ -230,6 +300,41 @@ function maybeReloadForBackfill(prevSettings: LsSettings | null, nextSettings: L
   window.setTimeout(() => {
     window.location.reload();
   }, 120);
+}
+
+function getConversationKey(pathname: string = location.pathname): string | null {
+  const match = pathname.match(/^\/(c|share)\/([^/]+)\/?$/);
+  if (!match) {
+    return null;
+  }
+  return `${match[1]}:${match[2]}`;
+}
+
+function getCachedConversationTotal(): number | null {
+  const key = getConversationKey();
+  if (!key) {
+    return null;
+  }
+  const total = conversationTotalsCache.get(key);
+  return typeof total === 'number' ? total : null;
+}
+
+function cacheConversationTotal(total: number): void {
+  if (total <= 0) {
+    return;
+  }
+  const key = getConversationKey();
+  if (!key) {
+    return;
+  }
+  conversationTotalsCache.set(key, total);
+  // Keep cache bounded.
+  if (conversationTotalsCache.size > 120) {
+    const oldestKey = conversationTotalsCache.keys().next().value as string | undefined;
+    if (oldestKey) {
+      conversationTotalsCache.delete(oldestKey);
+    }
+  }
 }
 
 function maybeReloadForKeepOneStability(
@@ -413,6 +518,24 @@ function setupNavigationDetection(): void {
       logDebug(`${source} navigation:`, lastUrl);
       authoritativeTotalRounds = null;
       resetAccumulatedTrimmed();
+      const keep = Math.max(1, currentSettings?.keep ?? 10);
+      const cachedTotal = getCachedConversationTotal();
+      if (cachedTotal && cachedTotal > 0 && isConversationRoute()) {
+        authoritativeTotalRounds = cachedTotal;
+        updateStatusBar({
+          totalMessages: cachedTotal,
+          visibleMessages: currentSettings?.enabled === false ? cachedTotal : Math.min(cachedTotal, keep),
+          trimmedMessages: currentSettings?.enabled === false ? 0 : Math.max(0, cachedTotal - keep),
+          keepLastN: keep,
+        });
+      } else {
+        updateStatusBar({
+          totalMessages: 0,
+          visibleMessages: 0,
+          trimmedMessages: 0,
+          keepLastN: keep,
+        });
+      }
       refreshStatusBar();
 
       // Re-bind DOM observers for per-chat containers (SPA navigation can replace the message list DOM).
@@ -421,6 +544,9 @@ function setupNavigationDetection(): void {
         userCollapse?.enable();
       }
       domTrimmer?.runNow();
+      // ChatGPT sometimes mounts turns a bit later on rapid SPA switches.
+      window.setTimeout(syncStatusFromCurrentCounts, 60);
+      window.setTimeout(syncStatusFromCurrentCounts, 220);
     });
   };
 
@@ -496,6 +622,19 @@ function setupEmptyChatObserver(): void {
   scheduleEmptyChatCheck();
 }
 
+function syncStatusFromCurrentCounts(): void {
+  if (!currentSettings?.enabled || !currentSettings.showStatusBar) {
+    return;
+  }
+  const counts = getChatCounts();
+  updateStatusBar({
+    totalMessages: counts.total,
+    visibleMessages: counts.visible,
+    trimmedMessages: counts.trimmed,
+    keepLastN: Math.max(1, currentSettings.keep),
+  });
+}
+
 // ============================================================================
 // Initialization
 // ============================================================================
@@ -568,6 +707,7 @@ async function initialize(): Promise<void> {
 
     // Detect empty chat state to reset stale status
     setupEmptyChatObserver();
+    syncStatusFromCurrentCounts();
 
     // Check proxy status after a short delay
     setTimeout(checkProxyStatus, TIMING.PROXY_READY_TIMEOUT_MS);

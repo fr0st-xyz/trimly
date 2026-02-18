@@ -9,6 +9,10 @@ import browser from '../shared/browser-polyfill';
 const STATUS_BAR_ID = 'trimly-status-bar';
 const STATUS_BAR_STYLE_ID = 'trimly-status-style';
 const STATUS_LOGO_URL = browser.runtime.getURL('assets/icons/128x128.png');
+const STATUS_HIDDEN_CLASS = 'ls-status-hidden';
+const STATUS_TEXT_CLASS = 'ls-status-text';
+const STATUS_LOGO_WRAP_CLASS = 'ls-status-logo-wrap';
+const SHOW_HIDE_MS = 140;
 
 export interface StatusBarStats {
   totalMessages: number;
@@ -47,6 +51,10 @@ const BAR_BASE_STYLE: StyleMap = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '5px',
+  opacity: '1',
+  transform: 'translateY(0) scale(1)',
+  transition:
+    'opacity 140ms ease, transform 140ms ease, padding 140ms ease, border-radius 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease',
 };
 
 const BAR_STATE_BASE_STYLE: StyleMap = {
@@ -64,7 +72,7 @@ const BAR_STATE_STYLE: Record<StatusBarState, StyleMap> = {
   active: {
     color: '#ffffff',
     backgroundColor: 'rgba(10, 10, 10, 0.95)',
-    borderColor: 'rgba(255, 255, 255, 0.32)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   waiting: {
     color: '#a3a3a3',
@@ -92,6 +100,7 @@ let lastUpdateTime = 0;
 let pendingStats: StatusBarStats | null = null;
 let pendingUpdateTimer: number | null = null;
 let lastRenderedState: StatusBarState | null = null;
+let hideTimer: number | null = null;
 
 function applyStyles(el: HTMLElement, styles: StyleMap): void {
   for (const [property, value] of Object.entries(styles)) {
@@ -136,7 +145,17 @@ function ensureStatusBarStyles(): void {
   const style = document.createElement('style');
   style.id = STATUS_BAR_STYLE_ID;
   style.textContent = `
-    .ls-status-logo-wrap {
+    #${STATUS_BAR_ID}.${STATUS_HIDDEN_CLASS} {
+      opacity: 0 !important;
+      transform: translateY(4px) scale(0.98) !important;
+      pointer-events: none !important;
+    }
+
+    .${STATUS_TEXT_CLASS} {
+      display: none;
+    }
+
+    .${STATUS_LOGO_WRAP_CLASS} {
       width: 100%;
       height: 100%;
       display: grid;
@@ -189,20 +208,43 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 }
 
 function setBarText(bar: HTMLElement, text: string, state: StatusBarState): void {
-  bar.textContent = '';
+  const { textEl, logoWrap } = ensureBarContentNodes(bar);
   if (state === 'waiting') {
-    const wrap = document.createElement('span');
-    wrap.className = 'ls-status-logo-wrap';
+    textEl.style.display = 'none';
+    logoWrap.style.display = 'grid';
+    return;
+  }
+
+  if (textEl.textContent !== text) {
+    textEl.textContent = text;
+  }
+  textEl.style.display = 'inline';
+  logoWrap.style.display = 'none';
+}
+
+function ensureBarContentNodes(bar: HTMLElement): { textEl: HTMLSpanElement; logoWrap: HTMLSpanElement } {
+  let textEl = bar.querySelector<HTMLSpanElement>(`.${STATUS_TEXT_CLASS}`);
+  let logoWrap = bar.querySelector<HTMLSpanElement>(`.${STATUS_LOGO_WRAP_CLASS}`);
+
+  if (!textEl) {
+    textEl = document.createElement('span');
+    textEl.className = STATUS_TEXT_CLASS;
+    bar.appendChild(textEl);
+  }
+
+  if (!logoWrap) {
+    logoWrap = document.createElement('span');
+    logoWrap.className = STATUS_LOGO_WRAP_CLASS;
     const logo = document.createElement('img');
     logo.className = 'ls-status-logo';
     logo.src = STATUS_LOGO_URL;
     logo.alt = '';
     logo.setAttribute('aria-hidden', 'true');
-    wrap.appendChild(logo);
-    bar.appendChild(wrap);
-    return;
+    logoWrap.appendChild(logo);
+    bar.appendChild(logoWrap);
   }
-  bar.textContent = text;
+
+  return { textEl, logoWrap };
 }
 
 /**
@@ -324,7 +366,20 @@ export function showStatusBar(): void {
     return;
   }
 
+  if (hideTimer !== null) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+
+  const alreadyVisible = bar.style.display !== 'none' && !bar.classList.contains(STATUS_HIDDEN_CLASS);
   bar.style.display = 'inline-flex';
+  if (!alreadyVisible) {
+    bar.classList.add(STATUS_HIDDEN_CLASS);
+    void bar.offsetWidth;
+    requestAnimationFrame(() => {
+      bar.classList.remove(STATUS_HIDDEN_CLASS);
+    });
+  }
 
   if (currentStats) {
     const { text, state } = getStatusText(currentStats);
@@ -345,7 +400,14 @@ export function hideStatusBar(): void {
   const bar = document.getElementById(STATUS_BAR_ID);
 
   if (bar) {
-    bar.style.display = 'none';
+    bar.classList.add(STATUS_HIDDEN_CLASS);
+    if (hideTimer !== null) {
+      clearTimeout(hideTimer);
+    }
+    hideTimer = window.setTimeout(() => {
+      bar.style.display = 'none';
+      hideTimer = null;
+    }, SHOW_HIDE_MS);
   }
 }
 
@@ -357,6 +419,10 @@ export function removeStatusBar(): void {
   if (pendingUpdateTimer !== null) {
     clearTimeout(pendingUpdateTimer);
     pendingUpdateTimer = null;
+  }
+  if (hideTimer !== null) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
   }
   pendingStats = null;
 
@@ -407,7 +473,8 @@ export function refreshStatusBar(): void {
     return;
   }
 
-  bar.style.display = 'block';
+  bar.style.display = 'inline-flex';
+  bar.classList.remove(STATUS_HIDDEN_CLASS);
 
   if (currentStats) {
     const { text, state } = getStatusText(currentStats);
