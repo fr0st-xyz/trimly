@@ -9,9 +9,11 @@ import { logDebug } from '../shared/logger';
 
 const HIDDEN_ATTR = 'data-ls-dom-trimmed';
 const HIDDEN_ACTION_ATTR = 'data-ls-dom-trimmed-action';
+const SHELL_COLLAPSE_ATTR = 'data-ls-dom-shell-collapsed';
+const DOM_STABLE_MIN_KEEP = 2;
 const HIDDEN_ROLES = new Set(['system', 'tool', 'thinking']);
 const TURN_CONTAINER_SELECTOR =
-  '[data-testid^="conversation-turn"], article[data-turn], [data-turn-id]';
+  '[data-testid^="conversation-turn"], article[data-turn]';
 const ACTION_KEYWORDS = [
   'copy',
   'good response',
@@ -115,36 +117,94 @@ function normalizeTurnSet(turns: HTMLElement[]): HTMLElement[] {
   return result;
 }
 
+function isRealMessageTurn(turn: HTMLElement): boolean {
+  if (turn.hasAttribute('data-message-id') || turn.querySelector('[data-message-id]')) {
+    return true;
+  }
+  return getRoleFromTurn(turn) !== null;
+}
+
+function resolveLayoutTurnElement(turn: HTMLElement): HTMLElement {
+  const article = turn.closest<HTMLElement>('article[data-turn]');
+  if (article) {
+    return article;
+  }
+
+  const explicit = turn.closest<HTMLElement>(TURN_CONTAINER_SELECTOR);
+  return explicit ?? turn;
+}
+
+function hideTurnSpacerSibling(turn: HTMLElement): void {
+  const sibling = turn.nextElementSibling;
+  if (!(sibling instanceof HTMLElement)) {
+    return;
+  }
+  if (!sibling.classList.contains('sr-only')) {
+    return;
+  }
+  sibling.setAttribute(HIDDEN_ATTR, '1');
+  sibling.style.setProperty('display', 'none', 'important');
+  sibling.style.setProperty('height', '0', 'important');
+  sibling.style.setProperty('min-height', '0', 'important');
+  sibling.style.setProperty('max-height', '0', 'important');
+  sibling.style.setProperty('margin', '0', 'important');
+  sibling.style.setProperty('padding', '0', 'important');
+  sibling.style.setProperty('overflow', 'hidden', 'important');
+}
+
+function unhideTurnSpacerSibling(turn: HTMLElement): void {
+  const sibling = turn.nextElementSibling;
+  if (!(sibling instanceof HTMLElement)) {
+    return;
+  }
+  if (!sibling.classList.contains('sr-only') || !sibling.hasAttribute(HIDDEN_ATTR)) {
+    return;
+  }
+  sibling.removeAttribute(HIDDEN_ATTR);
+  sibling.style.removeProperty('display');
+  sibling.style.removeProperty('height');
+  sibling.style.removeProperty('min-height');
+  sibling.style.removeProperty('max-height');
+  sibling.style.removeProperty('margin');
+  sibling.style.removeProperty('padding');
+  sibling.style.removeProperty('overflow');
+}
+
 function unhideTurn(turn: HTMLElement): boolean {
-  if (!turn.hasAttribute(HIDDEN_ATTR)) {
+  const target = resolveLayoutTurnElement(turn);
+  if (!target.hasAttribute(HIDDEN_ATTR)) {
+    unhideTurnSpacerSibling(target);
     return false;
   }
-  turn.removeAttribute(HIDDEN_ATTR);
-  turn.style.removeProperty('display');
-  turn.style.removeProperty('height');
-  turn.style.removeProperty('min-height');
-  turn.style.removeProperty('max-height');
-  turn.style.removeProperty('margin');
-  turn.style.removeProperty('padding');
-  turn.style.removeProperty('overflow');
-  turn.style.removeProperty('pointer-events');
+  target.removeAttribute(HIDDEN_ATTR);
+  target.style.removeProperty('display');
+  target.style.removeProperty('height');
+  target.style.removeProperty('min-height');
+  target.style.removeProperty('max-height');
+  target.style.removeProperty('margin');
+  target.style.removeProperty('padding');
+  target.style.removeProperty('overflow');
+  target.style.removeProperty('pointer-events');
+  unhideTurnSpacerSibling(target);
   return true;
 }
 
 function hideTurn(turn: HTMLElement): boolean {
-  if (turn.hasAttribute(HIDDEN_ATTR)) {
+  const target = resolveLayoutTurnElement(turn);
+  if (target.hasAttribute(HIDDEN_ATTR)) {
     return false;
   }
-  turn.setAttribute(HIDDEN_ATTR, '1');
+  target.setAttribute(HIDDEN_ATTR, '1');
   // Force full layout collapse so hidden turns never reserve scroll space.
-  turn.style.setProperty('display', 'none', 'important');
-  turn.style.setProperty('height', '0', 'important');
-  turn.style.setProperty('min-height', '0', 'important');
-  turn.style.setProperty('max-height', '0', 'important');
-  turn.style.setProperty('margin', '0', 'important');
-  turn.style.setProperty('padding', '0', 'important');
-  turn.style.setProperty('overflow', 'hidden', 'important');
-  turn.style.setProperty('pointer-events', 'none', 'important');
+  target.style.setProperty('display', 'none', 'important');
+  target.style.setProperty('height', '0', 'important');
+  target.style.setProperty('min-height', '0', 'important');
+  target.style.setProperty('max-height', '0', 'important');
+  target.style.setProperty('margin', '0', 'important');
+  target.style.setProperty('padding', '0', 'important');
+  target.style.setProperty('overflow', 'hidden', 'important');
+  target.style.setProperty('pointer-events', 'none', 'important');
+  hideTurnSpacerSibling(target);
   return true;
 }
 
@@ -152,6 +212,11 @@ function unhideAll(root: ParentNode): void {
   const trimmed = root.querySelectorAll<HTMLElement>(`[${HIDDEN_ATTR}]`);
   for (const turn of Array.from(trimmed)) {
     unhideTurn(turn);
+  }
+
+  const collapsedShells = root.querySelectorAll<HTMLElement>(`[${SHELL_COLLAPSE_ATTR}]`);
+  for (const shell of Array.from(collapsedShells)) {
+    uncollapseShell(shell);
   }
 
   const trimmedActions = root.querySelectorAll<HTMLElement>(`[${HIDDEN_ACTION_ATTR}]`);
@@ -346,8 +411,85 @@ interface ApplyTrimResult {
   visibleRounds: number;
 }
 
+function collapseShell(node: HTMLElement): boolean {
+  if (node.hasAttribute(SHELL_COLLAPSE_ATTR)) {
+    return false;
+  }
+  node.setAttribute(SHELL_COLLAPSE_ATTR, '1');
+  node.style.setProperty('display', 'none', 'important');
+  node.style.setProperty('height', '0', 'important');
+  node.style.setProperty('min-height', '0', 'important');
+  node.style.setProperty('max-height', '0', 'important');
+  node.style.setProperty('margin', '0', 'important');
+  node.style.setProperty('padding', '0', 'important');
+  node.style.setProperty('overflow', 'hidden', 'important');
+  node.style.setProperty('pointer-events', 'none', 'important');
+  return true;
+}
+
+function uncollapseShell(node: HTMLElement): boolean {
+  if (!node.hasAttribute(SHELL_COLLAPSE_ATTR)) {
+    return false;
+  }
+  node.removeAttribute(SHELL_COLLAPSE_ATTR);
+  node.style.removeProperty('display');
+  node.style.removeProperty('height');
+  node.style.removeProperty('min-height');
+  node.style.removeProperty('max-height');
+  node.style.removeProperty('margin');
+  node.style.removeProperty('padding');
+  node.style.removeProperty('overflow');
+  node.style.removeProperty('pointer-events');
+  return true;
+}
+
+function sweepPhantomTurnShells(root: ParentNode): boolean {
+  let changed = false;
+  const shells = root.querySelectorAll<HTMLElement>('article[data-turn], [data-testid^="conversation-turn"]');
+  for (const shell of Array.from(shells)) {
+    const hasAnyMessage = !!shell.querySelector('[data-message-id]');
+    const hasVisibleMessage = !!shell.querySelector(
+      `[data-message-id]:not([${HIDDEN_ATTR}]):not([${SHELL_COLLAPSE_ATTR}])`
+    );
+    const hasWritingBlock = !!shell.querySelector('[data-writing-block]');
+    const hasTrimmedMessage = !!shell.querySelector(`[data-message-id][${HIDDEN_ATTR}], [data-message-id][${SHELL_COLLAPSE_ATTR}]`);
+
+    // Keep actively writing/streaming shells.
+    if (hasWritingBlock) {
+      changed = uncollapseShell(shell) || changed;
+      continue;
+    }
+
+    // Collapse any shell that has message content but no visible message node.
+    // This handles stale wrappers left after aggressive keep changes (e.g. 27 -> 1),
+    // including wrappers whose trim markers were partially reset.
+    if (hasAnyMessage && !hasVisibleMessage) {
+      changed = collapseShell(shell) || changed;
+      continue;
+    }
+
+    // Extra guard: if shell itself is marked hidden, ensure layout is collapsed.
+    if (shell.hasAttribute(HIDDEN_ATTR) || hasTrimmedMessage) {
+      if (!hasVisibleMessage) {
+        changed = collapseShell(shell) || changed;
+        continue;
+      }
+    }
+
+    // Last-resort artifact cleanup: shells with no visible message and positive height
+    // can still reserve scroll space in some ChatGPT DOM revisions.
+    if (!hasVisibleMessage && shell.getBoundingClientRect().height > 1) {
+      changed = collapseShell(shell) || changed;
+      continue;
+    }
+
+    changed = uncollapseShell(shell) || changed;
+  }
+  return changed;
+}
+
 function applyTrim(root: ParentNode, keep: number): ApplyTrimResult {
-  const turns = getConversationTurns(root);
+  const turns = getConversationTurns(root).filter(isRealMessageTurn);
   if (turns.length === 0) {
     return { changed: false, totalRounds: 0, visibleRounds: 0 };
   }
@@ -378,10 +520,27 @@ function applyTrim(root: ParentNode, keep: number): ApplyTrimResult {
       changed = unhideTurn(turn) || changed;
     }
     cleanupOrphanActionControls(document, allVisibleTurns);
+    changed = sweepPhantomTurnShells(root) || changed;
     return { changed, totalRounds, visibleRounds: totalRounds };
   }
 
-  const startPos = userPositions[userPositions.length - keep] ?? 0;
+  let startPos = userPositions[userPositions.length - keep] ?? 0;
+
+  // keep=1 can become unstable while a brand-new user message is waiting for
+  // its assistant reply (latest visible turn is user). In that transient state,
+  // keep one extra round window to avoid aggressive shell churn that can leave
+  // phantom scroll space below the composer.
+  if (keep === 1 && userPositions.length > 1) {
+    const lastVisible = visibleTurns[visibleTurns.length - 1];
+    const lastRole = lastVisible?.role.toLowerCase();
+    if (lastRole === 'user') {
+      const previousUserPos = userPositions[userPositions.length - 2];
+      if (typeof previousUserPos === 'number') {
+        startPos = previousUserPos;
+      }
+    }
+  }
+
   const keepElements = new Set<HTMLElement>(visibleTurns.slice(startPos).map((entry) => entry.element));
 
   for (const turn of turns) {
@@ -401,12 +560,32 @@ function applyTrim(root: ParentNode, keep: number): ApplyTrimResult {
   }
 
   cleanupOrphanActionControls(document, keepElements);
+  changed = sweepPhantomTurnShells(root) || changed;
   return { changed, totalRounds, visibleRounds: Math.min(totalRounds, keep) };
 }
 
 function countUserRoundsInDom(root: ParentNode): number {
   const nodes = root.querySelectorAll<HTMLElement>('[data-message-id][data-message-author-role="user"]');
   return nodes.length;
+}
+
+function shouldUseKeepOneStabilityGuard(root: ParentNode): boolean {
+  if (root.querySelector('[data-writing-block]')) {
+    return true;
+  }
+
+  const turns = getConversationTurns(root);
+  const visibleTurns: Array<{ element: HTMLElement; role: string }> = [];
+  for (const turn of turns) {
+    const role = getRoleFromTurn(turn);
+    if (!role || HIDDEN_ROLES.has(role)) {
+      continue;
+    }
+    visibleTurns.push({ element: turn, role });
+  }
+
+  const last = visibleTurns[visibleTurns.length - 1];
+  return last?.role.toLowerCase() === 'user';
 }
 
 export function installDomTrimmer(
@@ -417,9 +596,38 @@ export function installDomTrimmer(
   let observerRoot: HTMLElement | null = null;
   let scheduled = false;
   let isApplying = false;
-  let forceBottomAnchor = false;
+  let hardResetPending = false;
+  let scrollContainer: HTMLElement | null = null;
+  let scrollIdleTimer: number | null = null;
+  let scrollActive = false;
 
-  const getScrollContainer = (): HTMLElement => {
+  const onScroll = (): void => {
+    scrollActive = true;
+    if (scrollIdleTimer !== null) {
+      window.clearTimeout(scrollIdleTimer);
+    }
+    scrollIdleTimer = window.setTimeout(() => {
+      scrollActive = false;
+      scheduleRun();
+    }, 180);
+  };
+
+  const getScrollContainer = (main: HTMLElement): HTMLElement => {
+    const anchor =
+      main.querySelector<HTMLElement>(TURN_CONTAINER_SELECTOR) ??
+      main.querySelector<HTMLElement>('[data-message-id]') ??
+      main;
+
+    let el: HTMLElement | null = anchor;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      const isScrollable = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+      if (isScrollable) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+
     const scroller = document.scrollingElement;
     return scroller instanceof HTMLElement ? scroller : document.documentElement;
   };
@@ -435,13 +643,22 @@ export function installDomTrimmer(
       return;
     }
 
-    const scroller = getScrollContainer();
-    const prevTop = scroller.scrollTop;
-    const prevHeight = scroller.scrollHeight;
-    const prevBottomOffset = prevHeight - (prevTop + scroller.clientHeight);
-    const wasNearBottom = prevBottomOffset <= 8;
+    const scroller = getScrollContainer(main);
+    if (config.keep === 1 && scrollActive) {
+      // Avoid trimming while the user is actively scrolling. ChatGPT's virtualized
+      // thread can otherwise produce transient phantom space when keep=1.
+      return;
+    }
 
     isApplying = true;
+    if (hardResetPending) {
+      // After retention/config changes, clear stale trim artifacts first.
+      // This prevents mixed old/new hidden states that can leave phantom scroll space.
+      unhideAll(main);
+      unhideAll(document);
+      hardResetPending = false;
+    }
+
     if (!config.enabled) {
       unhideAll(main);
       unhideAll(document);
@@ -456,7 +673,13 @@ export function installDomTrimmer(
       return;
     }
 
-    const result = applyTrim(main, Math.max(1, config.keep));
+    // Keep=1 is unstable only during live "edge" states (writing/pending reply).
+    // Outside those states, honor the user's exact keep=1.
+    const effectiveKeep =
+      config.keep === 1 && shouldUseKeepOneStabilityGuard(main)
+        ? DOM_STABLE_MIN_KEEP
+        : Math.max(1, config.keep);
+    const result = applyTrim(main, effectiveKeep);
     onStatusUpdate?.({
       totalRounds: result.totalRounds,
       visibleRounds: result.visibleRounds,
@@ -467,16 +690,6 @@ export function installDomTrimmer(
     isApplying = false;
     if (!result.changed) {
       return;
-    }
-
-    // Avoid jitter from aggressive delta correction on long chats.
-    // Keep bottom anchor when user is near bottom, or immediately after
-    // settings changes so the kept latest messages are visible.
-    const shouldAnchorBottom = wasNearBottom || forceBottomAnchor;
-    forceBottomAnchor = false;
-    if (shouldAnchorBottom) {
-      const nextHeight = scroller.scrollHeight;
-      scroller.scrollTop = Math.max(0, nextHeight - scroller.clientHeight);
     }
   };
 
@@ -494,7 +707,20 @@ export function installDomTrimmer(
       observer?.disconnect();
       observer = null;
       observerRoot = null;
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', onScroll, true);
+        scrollContainer = null;
+      }
       return;
+    }
+
+    const nextScroller = getScrollContainer(main);
+    if (nextScroller !== scrollContainer) {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', onScroll, true);
+      }
+      scrollContainer = nextScroller;
+      scrollContainer.addEventListener('scroll', onScroll, { passive: true, capture: true });
     }
 
     if (observer && observerRoot === main) {
@@ -533,10 +759,9 @@ export function installDomTrimmer(
         enabled: nextConfig.enabled,
         keep: Math.max(1, nextConfig.keep),
       };
-      if (config.enabled && (prevEnabled !== config.enabled || prevKeep !== config.keep)) {
-        forceBottomAnchor = true;
+      if (prevEnabled !== config.enabled || prevKeep !== config.keep) {
+        hardResetPending = true;
       }
-
       logDebug('DOM trimmer config updated:', config);
       ensureObserver();
       scheduleRun();
@@ -551,6 +776,14 @@ export function installDomTrimmer(
       window.clearInterval(healthTimer);
       observer?.disconnect();
       observer = null;
+      if (scrollIdleTimer !== null) {
+        window.clearTimeout(scrollIdleTimer);
+        scrollIdleTimer = null;
+      }
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', onScroll, true);
+        scrollContainer = null;
+      }
 
       const main = document.querySelector('main');
       if (main) {

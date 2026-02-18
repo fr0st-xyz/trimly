@@ -192,12 +192,14 @@ function preserveScrollAfterHeightChange(
   wasPinned: boolean
 ): void {
   const nextScrollHeight = scroller.scrollHeight;
+  const maxTop = Math.max(0, nextScrollHeight - scroller.clientHeight);
   if (wasPinned) {
-    scroller.scrollTop = Math.max(0, nextScrollHeight - scroller.clientHeight);
+    scroller.scrollTop = maxTop;
     return;
   }
   const delta = nextScrollHeight - prevScrollHeight;
-  scroller.scrollTop = prevScrollTop + delta;
+  const nextTop = prevScrollTop + delta;
+  scroller.scrollTop = Math.min(maxTop, Math.max(0, nextTop));
 }
 
 function ensureButton(bubble: HTMLElement, textId: string): HTMLButtonElement {
