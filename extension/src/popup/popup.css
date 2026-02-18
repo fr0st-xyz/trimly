@@ -168,25 +168,34 @@ body::-webkit-scrollbar-thumb:hover,
 .ls-slider-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
 .ls-slider-label {
   color: var(--ls-text-muted);
+  font-size: 13px;
   font-weight: 500;
 }
 
 .ls-slider-value {
-  min-width: 32px;
-  padding: 2px 8px;
-  border: 1px solid var(--ls-border-strong);
-  border-radius: var(--ls-radius-pill);
-  text-align: center;
-  font-weight: 600;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid #3f3f3f;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
   color: var(--ls-text);
-  background: var(--ls-surface);
+  background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   font-family: var(--ls-font-mono);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.01em;
 }
 
 .ls-slider-track-wrapper {
