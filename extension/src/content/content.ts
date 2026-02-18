@@ -70,6 +70,7 @@ let userCollapse: UserCollapseController | null = null;
 let domTrimmer: DomTrimmerController | null = null;
 let authoritativeTotalRounds: number | null = null;
 let lastBackfillReloadAt = 0;
+let lastKeepOneReloadAt = 0;
 
 // ============================================================================
 // Page Script Communication
@@ -231,6 +232,38 @@ function maybeReloadForBackfill(prevSettings: LsSettings | null, nextSettings: L
   }, 120);
 }
 
+function maybeReloadForKeepOneStability(
+  prevSettings: LsSettings | null,
+  nextSettings: LsSettings
+): void {
+  if (!prevSettings) {
+    return;
+  }
+  if (!nextSettings.enabled) {
+    return;
+  }
+  if (nextSettings.keep !== 1 || prevSettings.keep === 1) {
+    return;
+  }
+  if (!isConversationRoute()) {
+    return;
+  }
+
+  // keep=1 live DOM trimming can leave stale virtualized layout shells in some
+  // ChatGPT revisions (large empty space below composer). A guarded one-time reload
+  // ensures the thread is rebuilt in a stable state.
+  const now = Date.now();
+  if (now - lastKeepOneReloadAt < 8000) {
+    return;
+  }
+  lastKeepOneReloadAt = now;
+
+  logInfo('Reloading conversation for keep=1 stability');
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 120);
+}
+
 /**
  * Handle proxy ready message from page script.
  * Called when the page script has successfully patched window.fetch.
@@ -312,6 +345,7 @@ function applySettings(settings: LsSettings): void {
     keep: settings.keep,
   });
   maybeReloadForBackfill(prevSettings, settings);
+  maybeReloadForKeepOneStability(prevSettings, settings);
 
   logDebug('Settings applied:', settings);
 }

@@ -44,8 +44,6 @@ const BAR_BASE_STYLE: StyleMap = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   pointerEvents: 'none',
-  transition:
-    'padding 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease',
   display: 'inline-flex',
   alignItems: 'center',
   gap: '5px',
@@ -93,6 +91,7 @@ let isVisible = true;
 let lastUpdateTime = 0;
 let pendingStats: StatusBarStats | null = null;
 let pendingUpdateTimer: number | null = null;
+let lastRenderedState: StatusBarState | null = null;
 
 function applyStyles(el: HTMLElement, styles: StyleMap): void {
   for (const [property, value] of Object.entries(styles)) {
@@ -190,8 +189,8 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 }
 
 function setBarText(bar: HTMLElement, text: string, state: StatusBarState): void {
+  bar.textContent = '';
   if (state === 'waiting') {
-    bar.textContent = '';
     const wrap = document.createElement('span');
     wrap.className = 'ls-status-logo-wrap';
     const logo = document.createElement('img');
@@ -239,12 +238,14 @@ function renderStatusBar(displayStats: StatusBarStats): void {
   const { text, state } = getStatusText(displayStats);
   setBarText(bar, text, state);
   applyStateStyles(bar, state);
+  lastRenderedState = state;
   lastUpdateTime = performance.now();
 }
 
 function renderWaitingStatusBar(bar: HTMLElement): void {
   setBarText(bar, '', 'waiting');
   applyStateStyles(bar, 'waiting');
+  lastRenderedState = 'waiting';
   lastUpdateTime = performance.now();
 }
 
@@ -310,6 +311,7 @@ export function showLayoutNotRecognized(): void {
 
   bar.textContent = 'Messages · layout not recognized';
   applyStateStyles(bar, 'unrecognized');
+  lastRenderedState = 'unrecognized';
 }
 
 /**
@@ -322,7 +324,7 @@ export function showStatusBar(): void {
     return;
   }
 
-  bar.style.display = 'block';
+  bar.style.display = 'inline-flex';
 
   if (currentStats) {
     const { text, state } = getStatusText(currentStats);
@@ -363,6 +365,7 @@ export function removeStatusBar(): void {
     bar.remove();
   }
   currentStats = null;
+  lastRenderedState = null;
   isVisible = false;
   lastUpdateTime = 0;
 }
@@ -372,6 +375,7 @@ export function removeStatusBar(): void {
  */
 export function resetAccumulatedTrimmed(): void {
   currentStats = null;
+  lastRenderedState = null;
   pendingStats = null;
   if (pendingUpdateTimer !== null) {
     clearTimeout(pendingUpdateTimer);
