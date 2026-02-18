@@ -1,5 +1,5 @@
 <h1 id="start-of-content" align="center">
-  <a id="start-of-content" href="https://get-trimly.netlify.app" target="_blank"><img src="./extension/assets/banners/2/banner-rounded.png" alt="Trimly" width="900"></a>
+  <a id="start-of-content" href="https://trimly-extension.netlify.app" target="_blank"><img src="./extension/assets/banners/2/banner-rounded.png" alt="Trimly" width="900"></a>
 </h1>
 <p align="center">
   <strong>An alternative to <a href="https://github.com/11me/light-session" target="_blank">light-session</a> that keeps ChatGPT conversations fast.</strong>
