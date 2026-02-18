@@ -319,17 +319,11 @@ export function installUserCollapse(): UserCollapseController {
     requestAnimationFrame(() => {
       rafScheduled = false;
       if (!enabled) return;
-      const wasPinned = scroller ? isPinnedToBottom(scroller) : false;
 
       for (const root of pendingRoots) {
         processUserMessageRoot(root);
       }
       pendingRoots.clear();
-
-      if (scroller && wasPinned) {
-        // Keep user pinned to bottom if they were pinned before we changed layout.
-        scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-      }
     });
   };
 
