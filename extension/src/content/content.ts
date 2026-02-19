@@ -72,6 +72,7 @@ let authoritativeTotalRounds: number | null = null;
 const conversationTotalsCache = new Map<string, number>();
 let lastBackfillReloadAt = 0;
 let lastKeepOneReloadAt = 0;
+const SESSION_TOTAL_KEY_PREFIX = 'trimly:v4:conversation-total:';
 
 // ============================================================================
 // Page Script Communication
@@ -134,7 +135,10 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
 
   logDebug('Received trim status:', status);
   const domCounts = getDomChatCounts();
-  const mergedTotal = Math.max(status.totalBefore, domCounts.total, authoritativeTotalRounds ?? 0);
+  const cachedTotal = getCachedConversationTotal() ?? 0;
+  // Use DOM + cached totals for UI stability. Some backend totals can transiently
+  // overcount around refresh/reconnect phases.
+  const mergedTotal = Math.max(domCounts.total, cachedTotal, authoritativeTotalRounds ?? 0);
   authoritativeTotalRounds = mergedTotal;
   cacheConversationTotal(mergedTotal);
   const keep = Math.max(1, currentSettings?.keep ?? status.limit);
@@ -161,9 +165,10 @@ function handleDomTrimStatus(status: DomTrimStatus): void {
   }
 
   const domCounts = getDomChatCounts();
+  const cachedTotal = getCachedConversationTotal() ?? 0;
   const totalRounds = authoritativeTotalRounds === null
-    ? Math.max(status.totalRounds, domCounts.total)
-    : Math.max(authoritativeTotalRounds, status.totalRounds, domCounts.total);
+    ? Math.max(domCounts.total, cachedTotal)
+    : Math.max(authoritativeTotalRounds, domCounts.total, cachedTotal);
   authoritativeTotalRounds = totalRounds;
   cacheConversationTotal(totalRounds);
   const visibleRounds = currentSettings?.enabled ? Math.min(totalRounds, Math.max(1, status.keep)) : totalRounds;
@@ -182,61 +187,32 @@ function getDomChatCounts(): ChatCountPayload {
     return { total: 0, visible: 0, trimmed: 0 };
   }
 
-  const turns = getConversationUserTurns();
-  const total = turns.length;
-  let visible = 0;
+  const root = document.querySelector('main') ?? document;
+  const turns = Array.from(
+    root.querySelectorAll<HTMLElement>('[data-message-author-role="user"][data-message-id]')
+  );
+  const allIds = new Set<string>();
+  const visibleIds = new Set<string>();
+
   for (const turn of turns) {
+    const id = turn.getAttribute('data-message-id');
+    if (!id) {
+      continue;
+    }
+    allIds.add(id);
     if (!turn.closest('[data-ls-dom-trimmed], [data-ls-dom-shell-collapsed]')) {
-      visible += 1;
+      visibleIds.add(id);
     }
   }
+
+  const total = allIds.size;
+  const visible = visibleIds.size;
 
   return {
     total,
     visible,
     trimmed: Math.max(0, total - visible),
   };
-}
-
-function getConversationUserTurns(): HTMLElement[] {
-  const rawTurns = Array.from(
-    document.querySelectorAll<HTMLElement>(
-      'article[data-turn], [data-testid^="conversation-turn"], [data-turn-id]'
-    )
-  );
-  if (rawTurns.length === 0) {
-    return [];
-  }
-
-  // Deduplicate and keep top-level wrappers only (drop nested turn candidates).
-  const unique = Array.from(new Set(rawTurns));
-  const wrappers: HTMLElement[] = [];
-  for (const turn of unique) {
-    if (wrappers.some((kept) => kept.contains(turn))) {
-      continue;
-    }
-    for (let i = wrappers.length - 1; i >= 0; i--) {
-      const kept = wrappers[i];
-      if (kept && turn.contains(kept)) {
-        wrappers.splice(i, 1);
-      }
-    }
-    wrappers.push(turn);
-  }
-
-  const users: HTMLElement[] = [];
-  for (const turn of wrappers) {
-    const ownRole = (turn.getAttribute('data-message-author-role') || '').toLowerCase();
-    const nestedRole = (
-      turn.querySelector<HTMLElement>('[data-message-author-role]')?.getAttribute('data-message-author-role') || ''
-    ).toLowerCase();
-    const role = ownRole || nestedRole;
-    if (role === 'user' || turn.getAttribute('data-turn') === 'user') {
-      users.push(turn);
-    }
-  }
-
-  return users;
 }
 
 function getChatCounts(): ChatCountPayload {
@@ -315,8 +291,25 @@ function getCachedConversationTotal(): number | null {
   if (!key) {
     return null;
   }
-  const total = conversationTotalsCache.get(key);
-  return typeof total === 'number' ? total : null;
+  const inMemory = conversationTotalsCache.get(key);
+  if (typeof inMemory === 'number') {
+    return inMemory;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(`${SESSION_TOTAL_KEY_PREFIX}${key}`);
+    if (!raw) {
+      return null;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+    conversationTotalsCache.set(key, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 function cacheConversationTotal(total: number): void {
@@ -328,6 +321,11 @@ function cacheConversationTotal(total: number): void {
     return;
   }
   conversationTotalsCache.set(key, total);
+  try {
+    sessionStorage.setItem(`${SESSION_TOTAL_KEY_PREFIX}${key}`, String(total));
+  } catch {
+    // Ignore storage access/quota issues.
+  }
   // Keep cache bounded.
   if (conversationTotalsCache.size > 120) {
     const oldestKey = conversationTotalsCache.keys().next().value as string | undefined;
