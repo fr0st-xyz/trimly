@@ -27,6 +27,7 @@ const ACTION_KEYWORDS = [
   'again',
   'switch model',
 ];
+const BOTTOM_STICK_THRESHOLD_PX = 140;
 
 interface DomTrimmerConfig {
   enabled: boolean;
@@ -648,6 +649,10 @@ export function installDomTrimmer(
     }
 
     const scroller = getScrollContainer(main);
+    const distanceFromBottomBefore =
+      scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+    const shouldStickToBottom =
+      distanceFromBottomBefore >= -1 && distanceFromBottomBefore <= BOTTOM_STICK_THRESHOLD_PX;
     if (config.keep === 1 && scrollActive) {
       // Avoid trimming while the user is actively scrolling. ChatGPT's virtualized
       // thread can otherwise produce transient phantom space when keep=1.
@@ -694,6 +699,15 @@ export function installDomTrimmer(
     isApplying = false;
     if (!result.changed) {
       return;
+    }
+
+    if (shouldStickToBottom && !scrollActive) {
+      // Preserve ChatGPT's default behavior: if user was already near bottom,
+      // keep them anchored there after trim layout changes.
+      scroller.scrollTop = scroller.scrollHeight;
+      requestAnimationFrame(() => {
+        scroller.scrollTop = scroller.scrollHeight;
+      });
     }
   };
 
