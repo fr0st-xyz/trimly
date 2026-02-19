@@ -146,6 +146,53 @@ function dispatchStatus(status: TrimStatus): void {
   );
 }
 
+function dispatchUserTurnSentMarker(): void {
+  window.dispatchEvent(new CustomEvent('trimly-user-turn-sent'));
+}
+
+function isConversationSendRequest(method: string, url: URL): boolean {
+  if (method !== 'POST') {
+    return false;
+  }
+  return /^\/backend-api\/(?:f\/)?conversation\/?$/.test(url.pathname);
+}
+
+async function isLikelyUserSend(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  method: string,
+  url: URL
+): Promise<boolean> {
+  if (!isConversationSendRequest(method, url)) {
+    return false;
+  }
+
+  const initBody = init?.body;
+  let raw = '';
+
+  if (typeof initBody === 'string') {
+    raw = initBody;
+  } else if (input instanceof Request) {
+    try {
+      raw = await input.clone().text();
+    } catch {
+      raw = '';
+    }
+  }
+
+  if (!raw) {
+    // Best effort: endpoint-level signal still useful as a recent-send marker.
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { action?: unknown };
+    return parsed.action === 'next';
+  } catch {
+    return true;
+  }
+}
+
 // ============================================================================
 // Fetch Proxy
 // ============================================================================
@@ -270,6 +317,12 @@ async function interceptedFetch(
   }
 
   const url = new URL(urlString, location.href);
+
+  // Marker only: helps content-script distinguish real post-send +1 from
+  // phantom refresh +1. Does not directly update status counts.
+  if (await isLikelyUserSend(input, init, method, url)) {
+    dispatchUserTurnSentMarker();
+  }
 
   // Early return for non-matching requests - no config wait needed
   if (!isConversationRequest(method, url)) {

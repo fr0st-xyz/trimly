@@ -66,13 +66,19 @@ let proxyReady = false;
 let emptyChatState = false;
 let emptyChatCheckTimer: number | null = null;
 let emptyChatObserver: MutationObserver | null = null;
+let liveCountObserver: MutationObserver | null = null;
+let liveCountCheckTimer: number | null = null;
+let lastObservedUserCount = -1;
 let userCollapse: UserCollapseController | null = null;
 let domTrimmer: DomTrimmerController | null = null;
 let authoritativeTotalRounds: number | null = null;
+let latestTrimStatus: TrimStatus | null = null;
 const conversationTotalsCache = new Map<string, number>();
 let lastBackfillReloadAt = 0;
 let lastKeepOneReloadAt = 0;
 const SESSION_TOTAL_KEY_PREFIX = 'trimly:v4:conversation-total:';
+const SEND_RECENCY_WINDOW_MS = 5000;
+let lastUserSendSignalAt = 0;
 
 // ============================================================================
 // Page Script Communication
@@ -124,6 +130,7 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
 
   // Ignore stale status events when not in a conversation route.
   if (!isConversationRoute()) {
+    latestTrimStatus = null;
     updateStatusBar({
       totalMessages: 0,
       visibleMessages: 0,
@@ -134,21 +141,17 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
   }
 
   logDebug('Received trim status:', status);
-  const domCounts = getDomChatCounts();
-  const cachedTotal = getCachedConversationTotal() ?? 0;
-  // Use DOM + cached totals for UI stability. Some backend totals can transiently
-  // overcount around refresh/reconnect phases.
-  const mergedTotal = Math.max(domCounts.total, cachedTotal, authoritativeTotalRounds ?? 0);
-  authoritativeTotalRounds = mergedTotal;
-  cacheConversationTotal(mergedTotal);
+  latestTrimStatus = status;
+  authoritativeTotalRounds = status.totalBefore;
+  cacheConversationTotal(status.totalBefore);
   const keep = Math.max(1, currentSettings?.keep ?? status.limit);
-  const visible = currentSettings?.enabled === false ? mergedTotal : Math.min(mergedTotal, keep);
+  const visible = currentSettings?.enabled === false ? status.totalBefore : Math.min(status.totalBefore, keep);
 
   // Convert page script status format to status bar format
   updateStatusBar({
-    totalMessages: mergedTotal,
+    totalMessages: status.totalBefore,
     visibleMessages: visible,
-    trimmedMessages: Math.max(0, mergedTotal - visible),
+    trimmedMessages: Math.max(0, status.totalBefore - visible),
     keepLastN: keep,
   });
 }
@@ -161,6 +164,11 @@ function handleDomTrimStatus(status: DomTrimStatus): void {
       trimmedMessages: 0,
       keepLastN: Math.max(1, currentSettings?.keep ?? 10),
     });
+    return;
+  }
+
+  // Do not override fetch-trim stats when we have authoritative data.
+  if (latestTrimStatus !== null) {
     return;
   }
 
@@ -216,6 +224,17 @@ function getDomChatCounts(): ChatCountPayload {
 }
 
 function getChatCounts(): ChatCountPayload {
+  if (latestTrimStatus !== null && isConversationRoute()) {
+    const total = latestTrimStatus.totalBefore;
+    const keep = Math.max(1, currentSettings?.keep ?? latestTrimStatus.limit);
+    const visible = currentSettings?.enabled === false ? total : Math.min(total, keep);
+    return {
+      total,
+      visible,
+      trimmed: Math.max(0, total - visible),
+    };
+  }
+
   // Prefer authoritative totals from fetch-trim status (full conversation),
   // then merge with live DOM counts.
   const dom = getDomChatCounts();
@@ -515,6 +534,7 @@ function setupNavigationDetection(): void {
 
       logDebug(`${source} navigation:`, lastUrl);
       authoritativeTotalRounds = null;
+      latestTrimStatus = null;
       resetAccumulatedTrimmed();
       const keep = Math.max(1, currentSettings?.keep ?? 10);
       const cachedTotal = getCachedConversationTotal();
@@ -545,6 +565,7 @@ function setupNavigationDetection(): void {
       // ChatGPT sometimes mounts turns a bit later on rapid SPA switches.
       window.setTimeout(syncStatusFromCurrentCounts, 60);
       window.setTimeout(syncStatusFromCurrentCounts, 220);
+      window.setTimeout(scheduleLiveCountCheck, 320);
     });
   };
 
@@ -590,6 +611,7 @@ function checkEmptyChatView(): void {
   const isEmpty = isEmptyChatView(document);
   if (isEmpty && !emptyChatState) {
     authoritativeTotalRounds = null;
+    latestTrimStatus = null;
     resetAccumulatedTrimmed();
     refreshStatusBar();
   }
@@ -633,6 +655,42 @@ function syncStatusFromCurrentCounts(): void {
   });
 }
 
+function handleUserSendSignal(): void {
+  lastUserSendSignalAt = Date.now();
+  // The next fetch-trim status should replace this; avoid stale values
+  // when a new send starts before status arrives.
+  latestTrimStatus = null;
+}
+
+function scheduleLiveCountCheck(): void {
+  if (liveCountCheckTimer !== null) {
+    return;
+  }
+  liveCountCheckTimer = window.setTimeout(() => {
+    liveCountCheckTimer = null;
+    if (!currentSettings?.enabled || !currentSettings.showStatusBar || !isConversationRoute()) {
+      return;
+    }
+    const current = getDomChatCounts().total;
+    if (current === lastObservedUserCount) {
+      return;
+    }
+    lastObservedUserCount = current;
+    syncStatusFromCurrentCounts();
+  }, 120);
+}
+
+function setupLiveCountObserver(): void {
+  if (liveCountObserver) {
+    return;
+  }
+  liveCountObserver = new MutationObserver(() => {
+    scheduleLiveCountCheck();
+  });
+  liveCountObserver.observe(document.documentElement, { childList: true, subtree: true });
+  lastObservedUserCount = getDomChatCounts().total;
+}
+
 // ============================================================================
 // Initialization
 // ============================================================================
@@ -645,6 +703,8 @@ function setupEventListeners(): void {
   window.addEventListener('trimly-status', ((event: CustomEvent<unknown>) => {
     handleTrimStatus(event);
   }) as EventListener);
+  // Marker-only listener for distinguishing real post-send +1 from refresh +1.
+  window.addEventListener('trimly-user-turn-sent', handleUserSendSignal as EventListener, true);
 
   // Listen for proxy ready signal
   window.addEventListener('message', (event: MessageEvent<unknown>) => {
@@ -705,6 +765,7 @@ async function initialize(): Promise<void> {
 
     // Detect empty chat state to reset stale status
     setupEmptyChatObserver();
+    setupLiveCountObserver();
     syncStatusFromCurrentCounts();
 
     // Check proxy status after a short delay
