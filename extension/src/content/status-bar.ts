@@ -182,7 +182,7 @@ function ensureStatusBarStyles(): void {
 function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarState } {
   if (stats.trimmedMessages > 0) {
     return {
-      text: `Showing ${stats.visibleMessages} • ${stats.trimmedMessages} trimmed`,
+      text: `Showing ${stats.visibleMessages} of ${stats.totalMessages} messages`,
       state: 'active',
     };
   }
@@ -196,13 +196,13 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 
   if (stats.totalMessages <= stats.keepLastN) {
     return {
-      text: `Showing ${stats.totalMessages}`,
+      text: `Showing ${stats.totalMessages} of ${stats.totalMessages} messages`,
       state: 'all-visible',
     };
   }
 
   return {
-    text: `Showing ${stats.visibleMessages}`,
+    text: `Showing ${stats.visibleMessages} of ${stats.totalMessages} messages`,
     state: 'active',
   };
 }
