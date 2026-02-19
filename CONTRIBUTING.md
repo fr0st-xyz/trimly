@@ -38,6 +38,13 @@ npm run build:chrome
 # All
 npm run build
 
+# ------------------------------------
+
+# Optional: auto-run in Firefox Developer Edition (web-ext)
+npm run dev
+# Optional: auto-run in Firefox stable
+npm run dev:stable
+
 ```
 
 ## How to Contribute
