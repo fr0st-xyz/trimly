@@ -75,8 +75,7 @@ let authoritativeTotalRounds: number | null = null;
 let latestTrimStatus: TrimStatus | null = null;
 const conversationTotalsCache = new Map<string, number>();
 let lastUserSendSignalAt = 0;
-let pendingSendFallbackTimer: number | null = null;
-let pendingSendFallbackBase = 0;
+const seenSendMarkerKeys = new Map<string, number>();
 let lastBackfillReloadAt = 0;
 let lastKeepOneReloadAt = 0;
 const SESSION_TOTAL_KEY_PREFIX = 'trimly:v4:conversation-total:';
@@ -151,7 +150,8 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
   if (!recentSend && cachedTotal > 0 && stableTotal === cachedTotal + 1 && domCounts.total <= cachedTotal) {
     stableTotal = cachedTotal;
   }
-  stableTotal = Math.max(stableTotal, cachedTotal, domCounts.total);
+  // Let real fetch status correct prior fallback/cache drift; only floor to DOM proof.
+  stableTotal = Math.max(stableTotal, domCounts.total);
 
   latestTrimStatus = {
     ...status,
@@ -172,11 +172,6 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
     keepLastN: keep,
   });
 
-  // Trim status arrived: cancel any pending send fallback bump.
-  if (pendingSendFallbackTimer !== null) {
-    clearTimeout(pendingSendFallbackTimer);
-    pendingSendFallbackTimer = null;
-  }
 }
 
 function handleDomTrimStatus(status: DomTrimStatus): void {
@@ -262,9 +257,20 @@ function getChatCounts(): ChatCountPayload {
   // then merge with live DOM counts.
   const dom = getDomChatCounts();
   const cachedTotal = getCachedConversationTotal() ?? 0;
-  const total = authoritativeTotalRounds === null
+  let total = authoritativeTotalRounds === null
     ? Math.max(dom.total, cachedTotal)
     : Math.max(authoritativeTotalRounds, dom.total, cachedTotal);
+
+  // Guard against stale phantom +1 totals that can persist after refreshes.
+  // When we only have DOM/cache fallback (no fresh trim status), trust DOM if
+  // fallback is exactly one higher.
+  const recentSend = Date.now() - lastUserSendSignalAt < SEND_RECENCY_WINDOW_MS;
+  if (!recentSend && dom.total > 0 && total === dom.total + 1) {
+    total = dom.total;
+    authoritativeTotalRounds = total;
+    cacheConversationTotal(total);
+  }
+
   const keep = Math.max(1, currentSettings?.keep ?? dom.visible);
   const visible = currentSettings?.enabled === false ? total : Math.min(total, keep);
   return {
@@ -678,31 +684,68 @@ function syncStatusFromCurrentCounts(): void {
   });
 }
 
-function handleUserSendSignal(): void {
-  lastUserSendSignalAt = Date.now();
-  latestTrimStatus = null;
+function extractSendMarkerKey(event: Event): string | null {
+  const custom = event as CustomEvent<unknown>;
+  const detail = custom.detail;
+  if (typeof detail === 'string') {
+    try {
+      const parsed = JSON.parse(detail) as { dedupeKey?: unknown };
+      return typeof parsed.dedupeKey === 'string' ? parsed.dedupeKey : null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof detail === 'object' && detail !== null) {
+    const maybe = (detail as { dedupeKey?: unknown }).dedupeKey;
+    return typeof maybe === 'string' ? maybe : null;
+  }
+  return null;
+}
 
-  if (pendingSendFallbackTimer !== null) {
-    clearTimeout(pendingSendFallbackTimer);
-    pendingSendFallbackTimer = null;
+function handleUserSendSignal(event: Event): void {
+  const key = extractSendMarkerKey(event);
+  if (!key) {
+    return;
   }
 
-  const domTotal = getDomChatCounts().total;
-  const cachedTotal = getCachedConversationTotal() ?? 0;
-  pendingSendFallbackBase = Math.max(authoritativeTotalRounds ?? 0, cachedTotal, domTotal);
-
-  // If ChatGPT doesn't emit trim status after send (seen after some refresh flows),
-  // apply one conservative +1 fallback so status doesn't stay stale.
-  pendingSendFallbackTimer = window.setTimeout(() => {
-    pendingSendFallbackTimer = null;
-    const currentTotal = Math.max(authoritativeTotalRounds ?? 0, getCachedConversationTotal() ?? 0, getDomChatCounts().total);
-    if (currentTotal > pendingSendFallbackBase) {
-      return;
+  const now = Date.now();
+  const prev = seenSendMarkerKeys.get(key);
+  if (prev && now - prev < 15000) {
+    return;
+  }
+  seenSendMarkerKeys.set(key, now);
+  if (seenSendMarkerKeys.size > 1200) {
+    for (const [k, ts] of seenSendMarkerKeys) {
+      if (now - ts > 15000) {
+        seenSendMarkerKeys.delete(k);
+      }
     }
-    authoritativeTotalRounds = pendingSendFallbackBase + 1;
-    cacheConversationTotal(authoritativeTotalRounds);
-    syncStatusFromCurrentCounts();
-  }, 1400);
+  }
+
+  // In Firefox refresh paths, fetch trim status can be delayed/missed.
+  // Use send marker as authoritative "+1 turn" fallback per conversation.
+  if (isConversationRoute()) {
+    const dom = getDomChatCounts().total;
+    const cached = getCachedConversationTotal() ?? 0;
+    const baseTotal = authoritativeTotalRounds === null
+      ? Math.max(dom, cached)
+      : Math.max(authoritativeTotalRounds, dom, cached);
+    const nextTotal = Math.max(1, baseTotal + 1);
+    authoritativeTotalRounds = nextTotal;
+    cacheConversationTotal(nextTotal);
+  }
+
+  lastUserSendSignalAt = Date.now();
+  latestTrimStatus = null;
+  syncStatusFromCurrentCounts();
+  // Force recount after send marker so stale baseline cannot suppress updates.
+  lastObservedUserCount = -1;
+  scheduleLiveCountCheck();
+  // Some ChatGPT UI updates land later than the first mutation batch.
+  window.setTimeout(() => {
+    lastObservedUserCount = -1;
+    scheduleLiveCountCheck();
+  }, 420);
 }
 
 function scheduleLiveCountCheck(): void {

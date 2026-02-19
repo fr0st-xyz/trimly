@@ -196,7 +196,7 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 
   if (stats.totalMessages <= stats.keepLastN) {
     return {
-      text: `Showing ${stats.totalMessages} of ${stats.totalMessages} messages`,
+      text: `Showing ${stats.totalMessages} messages`,
       state: 'all-visible',
     };
   }

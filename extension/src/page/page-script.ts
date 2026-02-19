@@ -146,8 +146,11 @@ function dispatchStatus(status: TrimStatus): void {
   );
 }
 
-function dispatchUserTurnSentMarker(): void {
-  window.dispatchEvent(new CustomEvent('trimly-user-turn-sent'));
+function dispatchUserTurnSentMarker(dedupeKey: string): void {
+  // Use JSON string payload for cross-context reliability.
+  window.dispatchEvent(
+    new CustomEvent('trimly-user-turn-sent', { detail: JSON.stringify({ dedupeKey }) })
+  );
 }
 
 function isConversationSendRequest(method: string, url: URL): boolean {
@@ -157,14 +160,14 @@ function isConversationSendRequest(method: string, url: URL): boolean {
   return /^\/backend-api\/(?:f\/)?conversation\/?$/.test(url.pathname);
 }
 
-async function isLikelyUserSend(
+async function getUserSendDedupeKey(
   input: RequestInfo | URL,
   init: RequestInit | undefined,
   method: string,
   url: URL
-): Promise<boolean> {
+): Promise<string | null> {
   if (!isConversationSendRequest(method, url)) {
-    return false;
+    return null;
   }
 
   const initBody = init?.body;
@@ -181,15 +184,28 @@ async function isLikelyUserSend(
   }
 
   if (!raw) {
-    // Best effort: endpoint-level signal still useful as a recent-send marker.
-    return true;
+    return null;
   }
 
   try {
-    const parsed = JSON.parse(raw) as { action?: unknown };
-    return parsed.action === 'next';
+    const parsed = JSON.parse(raw) as {
+      action?: unknown;
+      conversation_id?: unknown;
+      parent_message_id?: unknown;
+    };
+    if (parsed.action !== 'next') {
+      return null;
+    }
+    const conversationId =
+      typeof parsed.conversation_id === 'string' ? parsed.conversation_id : '';
+    const parentMessageId =
+      typeof parsed.parent_message_id === 'string' ? parsed.parent_message_id : '';
+    if (!conversationId || !parentMessageId) {
+      return null;
+    }
+    return `${conversationId}:${parentMessageId}`;
   } catch {
-    return true;
+    return null;
   }
 }
 
@@ -320,8 +336,9 @@ async function interceptedFetch(
 
   // Marker only: helps content-script distinguish real post-send +1 from
   // phantom refresh +1. Does not directly update status counts.
-  if (await isLikelyUserSend(input, init, method, url)) {
-    dispatchUserTurnSentMarker();
+  const sendDedupeKey = await getUserSendDedupeKey(input, init, method, url);
+  if (sendDedupeKey) {
+    dispatchUserTurnSentMarker(sendDedupeKey);
   }
 
   // Early return for non-matching requests - no config wait needed
