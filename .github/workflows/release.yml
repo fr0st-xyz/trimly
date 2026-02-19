@@ -156,7 +156,7 @@ jobs:
           addon-path: trimly-${{ steps.version.outputs.VERSION }}-firefox.zip
           auth-api-issuer: ${{ secrets.FIREFOX_API_ISSUER }}
           auth-api-secret: ${{ secrets.FIREFOX_API_SECRET }}
-          release-note: "See release notes at https://github.com/11me/trimly/releases/tag/v${{ steps.version.outputs.VERSION }}"
+          release-note: "See release notes at https://github.com/fr0st-xyz/trimly/releases/tag/v${{ steps.version.outputs.VERSION }}"
 
       # =========================================================================
       # Chrome Web Store Publishing

@@ -74,11 +74,13 @@ let domTrimmer: DomTrimmerController | null = null;
 let authoritativeTotalRounds: number | null = null;
 let latestTrimStatus: TrimStatus | null = null;
 const conversationTotalsCache = new Map<string, number>();
+let lastUserSendSignalAt = 0;
+let pendingSendFallbackTimer: number | null = null;
+let pendingSendFallbackBase = 0;
 let lastBackfillReloadAt = 0;
 let lastKeepOneReloadAt = 0;
 const SESSION_TOTAL_KEY_PREFIX = 'trimly:v4:conversation-total:';
 const SEND_RECENCY_WINDOW_MS = 5000;
-let lastUserSendSignalAt = 0;
 
 // ============================================================================
 // Page Script Communication
@@ -141,19 +143,40 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
   }
 
   logDebug('Received trim status:', status);
-  latestTrimStatus = status;
-  authoritativeTotalRounds = status.totalBefore;
-  cacheConversationTotal(status.totalBefore);
+  const domCounts = getDomChatCounts();
+  const cachedTotal = getCachedConversationTotal() ?? 0;
+  const recentSend = Date.now() - lastUserSendSignalAt < SEND_RECENCY_WINDOW_MS;
+  let stableTotal = status.totalBefore;
+  // Block only the common phantom refresh +1 (no send + no DOM growth).
+  if (!recentSend && cachedTotal > 0 && stableTotal === cachedTotal + 1 && domCounts.total <= cachedTotal) {
+    stableTotal = cachedTotal;
+  }
+  stableTotal = Math.max(stableTotal, cachedTotal, domCounts.total);
+
+  latestTrimStatus = {
+    ...status,
+    totalBefore: stableTotal,
+    keptAfter: Math.min(stableTotal, status.keptAfter),
+    removed: Math.max(0, stableTotal - Math.min(stableTotal, status.keptAfter)),
+  };
+  authoritativeTotalRounds = stableTotal;
+  cacheConversationTotal(stableTotal);
   const keep = Math.max(1, currentSettings?.keep ?? status.limit);
-  const visible = currentSettings?.enabled === false ? status.totalBefore : Math.min(status.totalBefore, keep);
+  const visible = currentSettings?.enabled === false ? stableTotal : Math.min(stableTotal, keep);
 
   // Convert page script status format to status bar format
   updateStatusBar({
-    totalMessages: status.totalBefore,
+    totalMessages: stableTotal,
     visibleMessages: visible,
-    trimmedMessages: Math.max(0, status.totalBefore - visible),
+    trimmedMessages: Math.max(0, stableTotal - visible),
     keepLastN: keep,
   });
+
+  // Trim status arrived: cancel any pending send fallback bump.
+  if (pendingSendFallbackTimer !== null) {
+    clearTimeout(pendingSendFallbackTimer);
+    pendingSendFallbackTimer = null;
+  }
 }
 
 function handleDomTrimStatus(status: DomTrimStatus): void {
@@ -657,9 +680,29 @@ function syncStatusFromCurrentCounts(): void {
 
 function handleUserSendSignal(): void {
   lastUserSendSignalAt = Date.now();
-  // The next fetch-trim status should replace this; avoid stale values
-  // when a new send starts before status arrives.
   latestTrimStatus = null;
+
+  if (pendingSendFallbackTimer !== null) {
+    clearTimeout(pendingSendFallbackTimer);
+    pendingSendFallbackTimer = null;
+  }
+
+  const domTotal = getDomChatCounts().total;
+  const cachedTotal = getCachedConversationTotal() ?? 0;
+  pendingSendFallbackBase = Math.max(authoritativeTotalRounds ?? 0, cachedTotal, domTotal);
+
+  // If ChatGPT doesn't emit trim status after send (seen after some refresh flows),
+  // apply one conservative +1 fallback so status doesn't stay stale.
+  pendingSendFallbackTimer = window.setTimeout(() => {
+    pendingSendFallbackTimer = null;
+    const currentTotal = Math.max(authoritativeTotalRounds ?? 0, getCachedConversationTotal() ?? 0, getDomChatCounts().total);
+    if (currentTotal > pendingSendFallbackBase) {
+      return;
+    }
+    authoritativeTotalRounds = pendingSendFallbackBase + 1;
+    cacheConversationTotal(authoritativeTotalRounds);
+    syncStatusFromCurrentCounts();
+  }, 1400);
 }
 
 function scheduleLiveCountCheck(): void {
@@ -703,7 +746,6 @@ function setupEventListeners(): void {
   window.addEventListener('trimly-status', ((event: CustomEvent<unknown>) => {
     handleTrimStatus(event);
   }) as EventListener);
-  // Marker-only listener for distinguishing real post-send +1 from refresh +1.
   window.addEventListener('trimly-user-turn-sent', handleUserSendSignal as EventListener, true);
 
   // Listen for proxy ready signal
