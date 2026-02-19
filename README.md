@@ -10,6 +10,7 @@
 <p align="center">
 <a href="#-download">📦 Download</a> •
 <a href="#-faq">❓ FAQ</a> •
+<a href="#-showcase">📸 Showcase</a> •
 <a href="#-credits">🔗 Credits</a>  
 </p>
 
