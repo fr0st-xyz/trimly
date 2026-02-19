@@ -47,6 +47,19 @@ interface ChatCountPayload {
   trimmed: number;
 }
 
+interface DebugSnapshot {
+  reason: string;
+  time: number;
+  route: string;
+  enabled: boolean;
+  keep: number;
+  dom: ChatCountPayload;
+  cachedTotal: number | null;
+  authoritativeTotal: number | null;
+  latestTrimTotal: number | null;
+  latestTrimKept: number | null;
+}
+
 /**
  * Type guard for TrimStatus.
  * Validates that event.detail from page script has expected shape.
@@ -85,6 +98,27 @@ let lastBackfillReloadAt = 0;
 let lastKeepOneReloadAt = 0;
 const SESSION_TOTAL_KEY_PREFIX = 'trimly:v4:conversation-total:';
 const SEND_RECENCY_WINDOW_MS = 5000;
+
+function emitDebugSnapshot(reason: string): void {
+  if (!currentSettings?.debug) {
+    return;
+  }
+  const dom = getDomChatCounts();
+  const snapshot: DebugSnapshot = {
+    reason,
+    time: Date.now(),
+    route: location.pathname,
+    enabled: currentSettings.enabled,
+    keep: currentSettings.keep,
+    dom,
+    cachedTotal: getCachedConversationTotal(),
+    authoritativeTotal: authoritativeTotalRounds,
+    latestTrimTotal: latestTrimStatus?.totalBefore ?? null,
+    latestTrimKept: latestTrimStatus?.keptAfter ?? null,
+  };
+  // JSON string payload for reliable cross-context access in page console.
+  window.dispatchEvent(new CustomEvent('trimly-debug', { detail: JSON.stringify(snapshot) }));
+}
 
 // ============================================================================
 // Page Script Communication
@@ -176,6 +210,7 @@ function handleTrimStatus(event: CustomEvent<unknown>): void {
     trimmedMessages: Math.max(0, stableTotal - visible),
     keepLastN: keep,
   });
+  emitDebugSnapshot('handleTrimStatus');
 
 }
 
@@ -211,6 +246,7 @@ function handleDomTrimStatus(status: DomTrimStatus): void {
     trimmedMessages: trimmedRounds,
     keepLastN: status.keep,
   });
+  emitDebugSnapshot('handleDomTrimStatus');
 }
 
 function getDomChatCounts(): ChatCountPayload {
@@ -693,6 +729,7 @@ function syncStatusFromCurrentCounts(): void {
     trimmedMessages: counts.trimmed,
     keepLastN: Math.max(1, currentSettings.keep),
   });
+  emitDebugSnapshot('syncStatusFromCurrentCounts');
 }
 
 function extractSendMarkerKey(event: Event): string | null {
@@ -716,12 +753,14 @@ function extractSendMarkerKey(event: Event): string | null {
 function handleUserSendSignal(event: Event): void {
   const key = extractSendMarkerKey(event);
   if (!key) {
+    emitDebugSnapshot('handleUserSendSignal:missing-key');
     return;
   }
 
   const now = Date.now();
   const prev = seenSendMarkerKeys.get(key);
   if (prev && now - prev < 15000) {
+    emitDebugSnapshot('handleUserSendSignal:duplicate-key');
     return;
   }
   seenSendMarkerKeys.set(key, now);
@@ -738,16 +777,21 @@ function handleUserSendSignal(event: Event): void {
   if (isConversationRoute()) {
     const dom = getDomChatCounts().total;
     const cached = getCachedConversationTotal() ?? 0;
-    const baseTotal = authoritativeTotalRounds === null
-      ? Math.max(dom, cached)
-      : Math.max(authoritativeTotalRounds, dom, cached);
-    const nextTotal = Math.max(1, baseTotal + 1);
+    const baselineTotal = authoritativeTotalRounds === null
+      ? cached
+      : Math.max(authoritativeTotalRounds, cached);
+    // If DOM already includes the newly sent user turn, trust DOM.
+    // Otherwise advance by one from baseline.
+    const nextTotal = dom > baselineTotal
+      ? dom
+      : Math.max(1, baselineTotal + 1);
     authoritativeTotalRounds = nextTotal;
     cacheConversationTotal(nextTotal);
   }
 
   lastUserSendSignalAt = Date.now();
   latestTrimStatus = null;
+  emitDebugSnapshot('handleUserSendSignal:accepted');
   syncStatusFromCurrentCounts();
   // Force recount after send marker so stale baseline cannot suppress updates.
   lastObservedUserCount = -1;
@@ -756,6 +800,7 @@ function handleUserSendSignal(event: Event): void {
   window.setTimeout(() => {
     lastObservedUserCount = -1;
     scheduleLiveCountCheck();
+    emitDebugSnapshot('handleUserSendSignal:delayed-check');
   }, 420);
 }
 
@@ -766,13 +811,16 @@ function scheduleLiveCountCheck(): void {
   liveCountCheckTimer = window.setTimeout(() => {
     liveCountCheckTimer = null;
     if (!currentSettings?.enabled || !currentSettings.showStatusBar || !isConversationRoute()) {
+      emitDebugSnapshot('scheduleLiveCountCheck:skipped');
       return;
     }
     const current = getDomChatCounts().total;
     if (current === lastObservedUserCount) {
+      emitDebugSnapshot('scheduleLiveCountCheck:no-change');
       return;
     }
     lastObservedUserCount = current;
+    emitDebugSnapshot('scheduleLiveCountCheck:changed');
     syncStatusFromCurrentCounts();
   }, 120);
 }

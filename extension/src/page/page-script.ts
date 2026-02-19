@@ -157,7 +157,7 @@ function isConversationSendRequest(method: string, url: URL): boolean {
   if (method !== 'POST') {
     return false;
   }
-  return /^\/backend-api\/(?:f\/)?conversation\/?$/.test(url.pathname);
+  return /^\/backend-api\/(?:f\/)?conversation(?:\/init)?\/?$/.test(url.pathname);
 }
 
 async function getUserSendDedupeKey(

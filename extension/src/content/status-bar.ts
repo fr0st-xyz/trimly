@@ -180,9 +180,10 @@ function ensureStatusBarStyles(): void {
  * Get status bar text based on current state (short format for pill)
  */
 function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarState } {
+  const messageWord = (count: number): string => (count === 1 ? 'message' : 'messages');
   if (stats.trimmedMessages > 0) {
     return {
-      text: `Showing ${stats.visibleMessages} of ${stats.totalMessages} messages`,
+      text: `Showing ${stats.visibleMessages} of ${stats.totalMessages} ${messageWord(stats.totalMessages)}`,
       state: 'active',
     };
   }
@@ -196,13 +197,13 @@ function getStatusText(stats: StatusBarStats): { text: string; state: StatusBarS
 
   if (stats.totalMessages <= stats.keepLastN) {
     return {
-      text: `Showing ${stats.totalMessages} messages`,
+      text: `Showing ${stats.totalMessages} ${messageWord(stats.totalMessages)}`,
       state: 'all-visible',
     };
   }
 
   return {
-    text: `Showing ${stats.visibleMessages} of ${stats.totalMessages} messages`,
+    text: `Showing ${stats.visibleMessages} of ${stats.totalMessages} ${messageWord(stats.totalMessages)}`,
     state: 'active',
   };
 }
