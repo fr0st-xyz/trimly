@@ -126,44 +126,6 @@ function updateSliderTrackFill(): void {
   sliderTrackFill.style.width = `${percentage}%`;
 }
 
-function setChatCountsDisplay(text: string | null): void {
-  if (!chatCountsElement) {
-    return;
-  }
-
-  const selection = window.getSelection();
-  const hasSelectionInCounts = !!selection &&
-    selection.rangeCount > 0 &&
-    chatCountsElement.contains(selection.anchorNode);
-
-  if (!text) {
-    if (hasSelectionInCounts) {
-      return;
-    }
-    if (chatCountsElement.style.display === 'none' && chatCountsElement.textContent === '') {
-      return;
-    }
-    chatCountsElement.textContent = '';
-    chatCountsElement.style.display = 'none';
-    return;
-  }
-
-  // Preserve user text selection and avoid unnecessary writes.
-  if (hasSelectionInCounts) {
-    return;
-  }
-  const alreadyVisible = chatCountsElement.style.display !== 'none';
-  const sameText = chatCountsElement.textContent === text;
-  if (alreadyVisible && sameText) {
-    return;
-  }
-
-  chatCountsElement.textContent = text;
-  if (!alreadyVisible) {
-    chatCountsElement.style.display = '';
-  }
-}
-
 function updateKeepUnitLabel(value: number): void {
   keepUnitLabel.textContent = value === 1 ? 'message' : 'messages';
 }
@@ -443,7 +405,7 @@ async function refreshChatCounts(): Promise<void> {
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     const activeTab = tabs[0];
     if (!activeTab?.id || !activeTab.url) {
-      setChatCountsDisplay(null);
+      chatCountsElement.textContent = 'Open a ChatGPT conversation';
       return;
     }
 
@@ -451,13 +413,7 @@ async function refreshChatCounts(): Promise<void> {
       activeTab.url.includes('chat.openai.com') ||
       activeTab.url.includes('chatgpt.com');
     if (!isChatGPT) {
-      setChatCountsDisplay(null);
-      return;
-    }
-
-    const isConversation = /\/(c|share)\/[^/]+\/?$/.test(new URL(activeTab.url).pathname);
-    if (!isConversation) {
-      setChatCountsDisplay(null);
+      chatCountsElement.textContent = 'Open a ChatGPT conversation';
       return;
     }
 
@@ -466,18 +422,14 @@ async function refreshChatCounts(): Promise<void> {
     })) as ChatCountResponse | undefined;
 
     if (!response?.ok) {
-      setChatCountsDisplay(null);
+      chatCountsElement.textContent = 'No messages detected';
       return;
     }
 
     const { visible, total } = response.counts;
-    if (total <= 0) {
-      setChatCountsDisplay(null);
-      return;
-    }
-    setChatCountsDisplay(`Showing ${visible} of ${total} messages`);
+    chatCountsElement.textContent = `Showing ${visible} of ${total} messages`;
   } catch {
-    setChatCountsDisplay(null);
+    chatCountsElement.textContent = 'No messages detected';
   }
 }
 
