@@ -23,7 +23,12 @@ import {
 import { isEmptyChatView } from './chat-view';
 import { installUserCollapse, type UserCollapseController } from './user-collapse';
 import { isTrimlyRejection } from './rejection-filter';
-import { installDomTrimmer, type DomTrimmerController, type DomTrimStatus } from './dom-trimmer';
+import {
+  installDomTrimmer,
+  unhideAllTrimlyArtifacts,
+  type DomTrimmerController,
+  type DomTrimStatus,
+} from './dom-trimmer';
 
 
 // ============================================================================
@@ -453,6 +458,9 @@ function applySettings(settings: LsSettings): void {
   currentSettings = settings;
   if (!settings.enabled) {
     authoritativeTotalRounds = null;
+    latestTrimStatus = null;
+    // Force immediate visual restore when disabled (no refresh required).
+    unhideAllTrimlyArtifacts(document);
   }
 
   // Update debug mode
@@ -495,6 +503,9 @@ function applySettings(settings: LsSettings): void {
     enabled: settings.enabled,
     keep: settings.keep,
   });
+  if (!settings.enabled) {
+    domTrimmer.runNow();
+  }
   maybeReloadForBackfill(prevSettings, settings);
   maybeReloadForKeepOneStability(prevSettings, settings);
 

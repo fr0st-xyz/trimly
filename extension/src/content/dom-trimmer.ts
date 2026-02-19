@@ -46,6 +46,10 @@ export interface DomTrimmerController {
   teardown: () => void;
 }
 
+export function unhideAllTrimlyArtifacts(root: ParentNode = document): void {
+  unhideAll(root);
+}
+
 function getRoleFromTurn(turn: HTMLElement): string | null {
   const ownRole = turn.getAttribute('data-message-author-role');
   if (ownRole) {
