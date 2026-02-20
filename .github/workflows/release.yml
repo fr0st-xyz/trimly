@@ -150,11 +150,24 @@ jobs:
 
             ---
 
+      - name: Check Firefox publish secrets
+        id: firefox_secrets
+        env:
+          FIREFOX_ADDON_ID: ${{ secrets.FIREFOX_ADDON_ID }}
+          FIREFOX_API_ISSUER: ${{ secrets.FIREFOX_API_ISSUER }}
+          FIREFOX_API_SECRET: ${{ secrets.FIREFOX_API_SECRET }}
+        run: |
+          if [ -n "$FIREFOX_ADDON_ID" ] && [ -n "$FIREFOX_API_ISSUER" ] && [ -n "$FIREFOX_API_SECRET" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # =========================================================================
       # Firefox Add-ons Publishing
       # =========================================================================
       - name: Publish to Firefox Add-ons
-        if: ${{ secrets.FIREFOX_ADDON_ID != '' && secrets.FIREFOX_API_ISSUER != '' && secrets.FIREFOX_API_SECRET != '' }}
+        if: ${{ steps.firefox_secrets.outputs.enabled == 'true' }}
         uses: browser-actions/release-firefox-addon@v0.2.1
         with:
           addon-id: ${{ secrets.FIREFOX_ADDON_ID }}
@@ -163,11 +176,25 @@ jobs:
           auth-api-secret: ${{ secrets.FIREFOX_API_SECRET }}
           release-note: "See release notes at https://github.com/fr0st-xyz/trimly/releases/tag/v${{ steps.version.outputs.VERSION }}"
 
+      - name: Check Chrome publish secrets
+        id: chrome_secrets
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_CLIENT_ID" ] && [ -n "$CHROME_CLIENT_SECRET" ] && [ -n "$CHROME_REFRESH_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # =========================================================================
       # Chrome Web Store Publishing
       # =========================================================================
       - name: Publish to Chrome Web Store
-        if: ${{ secrets.CHROME_EXTENSION_ID != '' && secrets.CHROME_CLIENT_ID != '' && secrets.CHROME_CLIENT_SECRET != '' && secrets.CHROME_REFRESH_TOKEN != '' }}
+        if: ${{ steps.chrome_secrets.outputs.enabled == 'true' }}
         uses: browser-actions/release-chrome-extension@v0.2.1
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
