@@ -90,24 +90,29 @@ jobs:
       # =========================================================================
       - name: Create source zip
         run: |
-          zip -r trimly-${{ steps.version.outputs.VERSION }}-source.zip \
-            package.json \
-            package-lock.json \
-            tsconfig.json \
-            vitest.config.ts \
-            eslint.config.js \
-            build.cjs \
-            README.md \
-            LICENSE \
-            .gitignore \
-            .prettierrc \
-            .node-version \
-            docs/ \
-            extension/src/ \
-            extension/assets/icons/ \
-            extension/manifest.firefox.json \
-            extension/manifest.chrome.json \
-            tests/
+          FILES=(
+            package.json
+            package-lock.json
+            tsconfig.json
+            eslint.config.js
+            build.cjs
+            README.md
+            LICENSE
+            .gitignore
+            .node-version
+            docs/
+            extension/src/
+            extension/assets/icons/
+            extension/manifest.firefox.json
+            extension/manifest.chrome.json
+          )
+          EXISTING=()
+          for f in "${FILES[@]}"; do
+            if [ -e "$f" ]; then
+              EXISTING+=("$f")
+            fi
+          done
+          zip -r "trimly-${{ steps.version.outputs.VERSION }}-source.zip" "${EXISTING[@]}"
 
       # =========================================================================
       # GitHub Release
