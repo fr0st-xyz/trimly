@@ -417,7 +417,7 @@ function cacheConversationTotal(total: number): void {
   }
   // Keep cache bounded.
   if (conversationTotalsCache.size > 120) {
-    const oldestKey = conversationTotalsCache.keys().next().value as string | undefined;
+    const oldestKey = conversationTotalsCache.keys().next().value;
     if (oldestKey) {
       conversationTotalsCache.delete(oldestKey);
     }

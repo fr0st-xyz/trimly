@@ -99,7 +99,6 @@ let isVisible = true;
 let lastUpdateTime = 0;
 let pendingStats: StatusBarStats | null = null;
 let pendingUpdateTimer: number | null = null;
-let lastRenderedState: StatusBarState | null = null;
 let hideTimer: number | null = null;
 
 function applyStyles(el: HTMLElement, styles: StyleMap): void {
@@ -281,14 +280,12 @@ function renderStatusBar(displayStats: StatusBarStats): void {
   const { text, state } = getStatusText(displayStats);
   setBarText(bar, text, state);
   applyStateStyles(bar, state);
-  lastRenderedState = state;
   lastUpdateTime = performance.now();
 }
 
 function renderWaitingStatusBar(bar: HTMLElement): void {
   setBarText(bar, '', 'waiting');
   applyStateStyles(bar, 'waiting');
-  lastRenderedState = 'waiting';
   lastUpdateTime = performance.now();
 }
 
@@ -354,7 +351,6 @@ export function showLayoutNotRecognized(): void {
 
   bar.textContent = 'Messages · layout not recognized';
   applyStateStyles(bar, 'unrecognized');
-  lastRenderedState = 'unrecognized';
 }
 
 /**
@@ -432,7 +428,6 @@ export function removeStatusBar(): void {
     bar.remove();
   }
   currentStats = null;
-  lastRenderedState = null;
   isVisible = false;
   lastUpdateTime = 0;
 }
@@ -442,7 +437,6 @@ export function removeStatusBar(): void {
  */
 export function resetAccumulatedTrimmed(): void {
   currentStats = null;
-  lastRenderedState = null;
   pendingStats = null;
   if (pendingUpdateTimer !== null) {
     clearTimeout(pendingUpdateTimer);
