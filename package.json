@@ -1,6 +1,6 @@
 {
   "name": "trimly",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "description": "Trimly - Browser extension to optimize ChatGPT performance",
   "engines": {
