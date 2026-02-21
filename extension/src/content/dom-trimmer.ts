@@ -139,6 +139,22 @@ function resolveLayoutTurnElement(turn: HTMLElement): HTMLElement {
   return explicit ?? turn;
 }
 
+function isActiveScrollAnchorTurn(turn: HTMLElement): boolean {
+  const target = resolveLayoutTurnElement(turn);
+  return target.getAttribute('data-scroll-anchor') === 'true';
+}
+
+function isImageGenerationTurn(turn: HTMLElement): boolean {
+  const target = resolveLayoutTurnElement(turn);
+  const text = (target.textContent || '').toLowerCase();
+  if (text.includes('creating image') || text.includes('image created')) {
+    return true;
+  }
+  return !!target.querySelector(
+    '.group\\/imagegen-image, [aria-label="Generated image"], img[alt="Generated image"], [id^="image-"]'
+  );
+}
+
 function hideTurnSpacerSibling(turn: HTMLElement): void {
   const sibling = turn.nextElementSibling;
   if (!(sibling instanceof HTMLElement)) {
@@ -452,6 +468,16 @@ function sweepPhantomTurnShells(root: ParentNode): boolean {
   let changed = false;
   const shells = root.querySelectorAll<HTMLElement>('article[data-turn], [data-testid^="conversation-turn"]');
   for (const shell of Array.from(shells)) {
+    if (isImageGenerationTurn(shell)) {
+      changed = uncollapseShell(shell) || changed;
+      continue;
+    }
+
+    if (shell.getAttribute('data-scroll-anchor') === 'true') {
+      changed = uncollapseShell(shell) || changed;
+      continue;
+    }
+
     const hasAnyMessage = !!shell.querySelector('[data-message-id]');
     const hasVisibleMessage = !!shell.querySelector(
       `[data-message-id]:not([${HIDDEN_ATTR}]):not([${SHELL_COLLAPSE_ATTR}])`
@@ -560,6 +586,18 @@ function applyTrim(root: ParentNode, keep: number): ApplyTrimResult {
   const keepElements = new Set<HTMLElement>(visibleTurns.slice(startPos).map((entry) => entry.element));
 
   for (const turn of turns) {
+    // Never hide current/ongoing image generation turns.
+    if (isImageGenerationTurn(turn)) {
+      changed = unhideTurn(turn) || changed;
+      continue;
+    }
+
+    // Never hide the active scroll-anchor turn (current generation/response turn).
+    if (isActiveScrollAnchorTurn(turn)) {
+      changed = unhideTurn(turn) || changed;
+      continue;
+    }
+
     // Never hide transient/non-visible wrappers (e.g. freshly sent/in-flight nodes
     // that may not have stable role attributes yet). This prevents newest message
     // from disappearing before the next real turn arrives.

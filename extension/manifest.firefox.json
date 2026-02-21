@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Trimly for ChatGPT",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Trimly - Browser extension to optimize ChatGPT performance",
   "icons": {
     "16": "assets/icons/outlined/16x16-outlined.png",

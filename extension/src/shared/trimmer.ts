@@ -78,6 +78,42 @@ function isUserMessage(node: ChatNode): boolean {
   return (node.message?.author?.role || '').toLowerCase() === 'user';
 }
 
+function resolveEffectiveCurrentNode(mapping: ChatMapping, currentNodeId: string): string {
+  let cursor: string = currentNodeId;
+  const visited = new Set<string>();
+
+  while (cursor && !visited.has(cursor)) {
+    visited.add(cursor);
+    const node = mapping[cursor];
+    if (!node?.children || node.children.length === 0) {
+      break;
+    }
+
+    // Prefer the newest visible child if available; otherwise newest child.
+    let next: string | null = null;
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      const childId = node.children[i];
+      if (!childId) continue;
+      const childNode = mapping[childId];
+      if (!childNode) continue;
+      if (isVisibleMessage(childNode)) {
+        next = childId;
+        break;
+      }
+      if (!next) {
+        next = childId;
+      }
+    }
+
+    if (!next || visited.has(next)) {
+      break;
+    }
+    cursor = next;
+  }
+
+  return cursor;
+}
+
 // ============================================================================
 // Trimming Algorithm
 // ============================================================================
@@ -107,9 +143,11 @@ export function trimMapping(
     return null;
   }
 
+  const effectiveCurrentNode = resolveEffectiveCurrentNode(mapping, currentNode);
+
   // Build path from current_node to root by following parent links
   const path: string[] = [];
-  let cursor: string | null = currentNode;
+  let cursor: string | null = effectiveCurrentNode;
   const visited = new Set<string>();
 
   while (cursor) {
@@ -166,7 +204,7 @@ export function trimMapping(
 
   const keptRaw = path.slice(cutIndex);
 
-  // Filter to ONLY user/assistant nodes (remove system/tool that got included)
+  // Start with visible nodes on the main path.
   const kept = keptRaw.filter((id) => {
     const node = mapping[id];
     return node && isVisibleMessage(node);
@@ -176,6 +214,27 @@ export function trimMapping(
     return null;
   }
 
+  // Preserve descendant nodes from kept turns, including hidden/tool nodes.
+  // ChatGPT image-generation turns can depend on non-visible helper nodes
+  // (tool/result nodes) to resolve final media after refresh.
+  const finalIds: string[] = [...kept];
+  const finalSet = new Set<string>(finalIds);
+  const queue: string[] = [...kept];
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (!id) continue;
+    const node = mapping[id];
+    const children = node?.children ?? [];
+    for (const childId of children) {
+      if (!childId || finalSet.has(childId)) continue;
+      const child = mapping[childId];
+      if (!child) continue;
+      finalSet.add(childId);
+      finalIds.push(childId);
+      queue.push(childId);
+    }
+  }
+
   // Preserve original root node - ChatGPT needs this "(no role)" node as tree anchor
   const originalRootId = path[0];
   const originalRootNode = originalRootId ? mapping[originalRootId] : null;
@@ -183,48 +242,61 @@ export function trimMapping(
 
   // Build new mapping with kept nodes + original root
   const newMapping: ChatMapping = {};
-  // Add original root node first (the "(no role)" anchor node)
-  if (hasOriginalRoot) {
-    newMapping[originalRootId] = {
-      ...originalRootNode,
-      parent: null,
-      children: kept[0] ? [kept[0]] : [],
-    };
-  }
 
-  // Add kept visible nodes
-  for (let i = 0; i < kept.length; i++) {
-    const id = kept[i];
+  // Add kept visible nodes with preserved parent/children links.
+  for (let i = 0; i < finalIds.length; i++) {
+    const id = finalIds[i];
     if (!id) continue;
-
-    // First kept node's parent is originalRoot (if exists), otherwise null
-    const prevId =
-      i === 0 ? (hasOriginalRoot ? originalRootId : null) : kept[i - 1];
-    const nextId = kept[i + 1] ?? null;
     const originalNode = mapping[id];
 
     if (originalNode) {
+      const originalParent = originalNode.parent ?? null;
+      const parentInSet = originalParent ? finalSet.has(originalParent) : false;
+      const parentId = parentInSet
+        ? originalParent
+        : (hasOriginalRoot ? originalRootId : null);
+      const children = (originalNode.children ?? []).filter((childId) => finalSet.has(childId));
+
       newMapping[id] = {
         ...originalNode,
-        parent: prevId ?? null,
-        children: nextId ? [nextId] : [],
+        parent: parentId ?? null,
+        children,
       };
     }
   }
 
-  const visibleKept = kept.length;
+  // Add original root node after children so we can compute root children from final links.
+  if (hasOriginalRoot) {
+    const rootChildren = finalIds.filter((id) => {
+      const node = newMapping[id];
+      return !!node && node.parent === originalRootId;
+    });
+
+    newMapping[originalRootId] = {
+      ...originalRootNode,
+      parent: null,
+      children: rootChildren,
+    };
+  }
+
+  const visibleKept = finalIds.reduce((count, id) => {
+    const node = mapping[id];
+    return count + (node && isVisibleMessage(node) ? 1 : 0);
+  }, 0);
   const roundTotal = userIndices.length > 0 ? userIndices.length : visibleTotal;
   const roundKept =
     userIndices.length > 0
-      ? kept.reduce((count, id) => {
+      ? finalIds.reduce((count, id) => {
           const node = mapping[id];
           return count + (node && isUserMessage(node) ? 1 : 0);
         }, 0)
       : visibleKept;
 
   // Use original root if available, otherwise first kept node
-  const newRoot = hasOriginalRoot ? originalRootId : kept[0];
-  const newCurrentNode = kept[kept.length - 1];
+  const newRoot = hasOriginalRoot ? originalRootId : finalIds[0];
+  const newCurrentNode = finalSet.has(effectiveCurrentNode)
+    ? effectiveCurrentNode
+    : finalIds[finalIds.length - 1];
 
   // These should always be defined since kept.length > 0, but TypeScript needs assurance
   if (!newRoot || !newCurrentNode) {
@@ -235,7 +307,7 @@ export function trimMapping(
     mapping: newMapping,
     current_node: newCurrentNode,
     root: newRoot,
-    keptCount: kept.length,
+    keptCount: finalIds.length,
     totalCount,
     visibleKept,
     visibleTotal,
