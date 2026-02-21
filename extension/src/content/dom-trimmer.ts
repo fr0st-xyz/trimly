@@ -458,9 +458,19 @@ function sweepPhantomTurnShells(root: ParentNode): boolean {
     );
     const hasWritingBlock = !!shell.querySelector('[data-writing-block]');
     const hasTrimmedMessage = !!shell.querySelector(`[data-message-id][${HIDDEN_ATTR}], [data-message-id][${SHELL_COLLAPSE_ATTR}]`);
+    const hasGeneratedImageContent = !!shell.querySelector(
+      '.group\\/imagegen-image, [aria-label="Generated image"], img[alt="Generated image"], [id^="image-"]'
+    );
+    const hasMediaContent = !!shell.querySelector('img, video, canvas, figure, picture');
 
     // Keep actively writing/streaming shells.
     if (hasWritingBlock) {
+      changed = uncollapseShell(shell) || changed;
+      continue;
+    }
+    // Keep active media/image-generation shells even when message-id wrappers
+    // are transient or missing (ChatGPT image turns can briefly render this way).
+    if (hasGeneratedImageContent || hasMediaContent) {
       changed = uncollapseShell(shell) || changed;
       continue;
     }
@@ -481,9 +491,10 @@ function sweepPhantomTurnShells(root: ParentNode): boolean {
       }
     }
 
-    // Last-resort artifact cleanup: shells with no visible message and positive height
-    // can still reserve scroll space in some ChatGPT DOM revisions.
-    if (!hasVisibleMessage && shell.getBoundingClientRect().height > 1) {
+    // Last-resort artifact cleanup: only collapse shells that are already marked
+    // as trimmed/collapsed artifacts. Do not collapse generic shells just because
+    // they have height; that can hide active assistant image turns.
+    if (!hasVisibleMessage && (shell.hasAttribute(HIDDEN_ATTR) || shell.hasAttribute(SHELL_COLLAPSE_ATTR))) {
       changed = collapseShell(shell) || changed;
       continue;
     }
