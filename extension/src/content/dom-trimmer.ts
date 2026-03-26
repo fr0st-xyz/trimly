@@ -248,6 +248,11 @@ function unhideAll(root: ParentNode): void {
 }
 
 function isActionControl(el: HTMLElement): boolean {
+  // Never treat the ChatGPT composer or any editable input as a trim target.
+  if (isComposerRelatedNode(el) || isComposerElement(el)) {
+    return false;
+  }
+
   const testId = (el.getAttribute('data-testid') || '').toLowerCase();
   const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
   const text = (el.textContent || '').trim().toLowerCase();
@@ -279,6 +284,19 @@ function isRetryLikeText(text: string): boolean {
     normalized === 'try again' ||
     normalized === 'retry' ||
     normalized === 'regenerate'
+  );
+}
+
+function isComposerElement(el: HTMLElement): boolean {
+  return !!el.closest(
+    '#prompt-textarea, [role="textbox"], [contenteditable="true"], textarea, input, .wcDTda_prosemirror-parent'
+  );
+}
+
+function isComposerRelatedNode(el: HTMLElement): boolean {
+  return (
+    !!el.closest('#thread-bottom-container, .wcDTda_prosemirror-parent, #prompt-textarea') ||
+    !!el.querySelector('#prompt-textarea, .wcDTda_prosemirror-parent')
   );
 }
 
@@ -332,11 +350,32 @@ function getFirstVisibleTurnTop(visibleTurns: Set<HTMLElement>): number {
 function cleanupOrphanActionControls(root: ParentNode, visibleTurns: Set<HTMLElement>): void {
   const visibleMessageIds = collectVisibleMessageIds(visibleTurns);
   const firstVisibleTop = getFirstVisibleTurnTop(visibleTurns);
+  const composerRelated = root.querySelectorAll<HTMLElement>(
+    '#thread-bottom-container, .wcDTda_prosemirror-parent, #prompt-textarea, form'
+  );
+  for (const node of Array.from(composerRelated)) {
+    if (!isComposerRelatedNode(node)) {
+      continue;
+    }
+    if (node.hasAttribute(HIDDEN_ACTION_ATTR)) {
+      node.removeAttribute(HIDDEN_ACTION_ATTR);
+      node.style.removeProperty('display');
+    }
+  }
+
   const controls = root.querySelectorAll<HTMLElement>(
     'button, [role="button"], [role="menuitem"], [data-testid], [aria-label]'
   );
 
   for (const control of Array.from(controls)) {
+    if (isComposerRelatedNode(control) || isComposerElement(control)) {
+      if (control.hasAttribute(HIDDEN_ACTION_ATTR)) {
+        control.removeAttribute(HIDDEN_ACTION_ATTR);
+        control.style.removeProperty('display');
+      }
+      continue;
+    }
+
     if (!isActionControl(control)) {
       continue;
     }
@@ -403,12 +442,18 @@ function cleanupOrphanActionControls(root: ParentNode, visibleTurns: Set<HTMLEle
   // Detect those by text and hide the closest clickable container.
   const retryTextEls = root.querySelectorAll<HTMLElement>('span, div, p, [role="menuitem"]');
   for (const el of Array.from(retryTextEls)) {
+    if (isComposerRelatedNode(el) || isComposerElement(el)) {
+      continue;
+    }
     if (!isRetryLikeText(el.textContent || '')) {
       continue;
     }
 
     const closest = el.closest('button, [role="button"], [role="menuitem"], [data-testid]');
     const target = closest instanceof HTMLElement ? closest : el;
+    if (isComposerRelatedNode(target) || isComposerElement(target)) {
+      continue;
+    }
     const inVisibleTurn = belongsToVisibleTurn(target, visibleTurns);
     const messageId = getMessageIdForElement(target);
     const belongsToVisibleMessage = !!messageId && visibleMessageIds.has(messageId);
